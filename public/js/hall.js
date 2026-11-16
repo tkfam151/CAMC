@@ -2,47 +2,24 @@
 (function () {
   'use strict';
 
-  const CLASS_LIST = [
-    { id: '7A', name: '7 Archimedes (7A)', color: '#00b8d9' },
-    { id: '7E', name: '7 Einstein (7E)', color: '#ff2d55' },
-    { id: '7F', name: '7 Franklin (7F)', color: '#2563eb' },
-    { id: '7Lang', name: '7 Lang', color: '#f5a623' },
-    { id: '7N', name: '7 Newton (7N)', color: '#a855f7' },
-    { id: '7P', name: '7 Pasteur (7P)', color: '#65a30d' },
-    { id: '7T', name: '7 Tesla (7T)', color: '#ec4899' },
-    { id: '8A', name: '8 Austen (8A)', color: '#f97316' },
-    { id: '8B', name: '8 Byron (8B)', color: '#0891b2' },
-    { id: '8H', name: '8 Hemingway (8H)', color: '#15803d' },
-    { id: '8Lang', name: '8 Lang', color: '#e11d48' },
-    { id: '8M', name: '8 Mendelssohn (8M)', color: '#22c55e' },
-    { id: '8S', name: '8 Shakespeare (8S)', color: '#eab308' },
-    { id: '8W', name: '8 Wordsworth (8W)', color: '#4f46e5' },
-    { id: '9B', name: '9 Beethoven (9B)', color: '#f43f5e' },
-    { id: '9G', name: '9 Gershwin (9G)', color: '#0ea5e9' },
-    { id: '9H', name: '9 Haydn (9H)', color: '#7c3aed' },
-    { id: '9M', name: '9 Mozart (9M)', color: '#fb7185' },
-    { id: '9S', name: '9 Schubert (9S)', color: '#10b981' },
-    { id: '9T', name: '9 Turing (9T)', color: '#d946ef' },
-    { id: '10L', name: '10 Leonardo (10L)', color: '#d97706' },
-    { id: '10M', name: '10 Monet (10M)', color: '#16a34a' },
-    { id: '10P', name: '10 Picasso (10P)', color: '#ea580c' },
-    { id: '10R', name: '10 Rutherford (10R)', color: '#0e7490' },
-    { id: '10V', name: '10 Van Gogh (10V)', color: '#9333ea' },
-    { id: '11A', name: '11 Aristotle (11A)', color: '#0284c7' },
-    { id: '11P', name: '11 Plato (11P)', color: '#1d4ed8' },
-    { id: '11R', name: '11 Ramanujan (11R)', color: '#ff9500' },
-    { id: '11S', name: '11 Socrates (11S)', color: '#dc2626' },
-    { id: '11V', name: '11 Voltaire (11V)', color: '#059669' },
-    { id: '12G', name: '12 Gryphon (12G)', color: '#db2777' },
-    { id: '12M', name: '12 Merlion (12M)', color: '#7e22ce' },
-    { id: '12P', name: '12 Phoenix (12P)', color: '#c2410c' },
-    { id: '12U', name: '12 Unicorn (12U)', color: '#6366f1' },
-    { id: 'Council', name: 'Student Council (สภานักเรียน)', color: '#ef4444' },
-    { id: 'VIP', name: 'VIP', color: '#c9a227' },
-    { id: 'SMT', name: 'SMT', color: '#ff007f' },
-    { id: 'PST', name: 'PST', color: '#f472b6' },
-    { id: 'Teacher', name: 'Teacher', color: '#991b1b' },
-  ];
+  // Classes and VIP groups, loaded from the server with setGroups().
+  let GROUPS = [];
+  function setGroups(list) { GROUPS = Array.isArray(list) ? list : []; }
+  function getGroups(kind) { return kind ? GROUPS.filter((g) => g.kind === kind) : GROUPS.slice(); }
+
+  /** Resolve a seat's current label and colour (group edits apply to every event). */
+  function seatInfo(data) {
+    if (!data) return null;
+    const g = GROUPS.find((x) => x.id === data.classId);
+    return {
+      classId: data.classId,
+      name: g ? g.name : data.className || data.classId,
+      color: g ? g.color : data.color || '#8e8e93',
+      vip: g ? g.kind === 'vip' : /vip/i.test(data.classId || ''),
+      personName: data.personName || '',
+      photoUrl: data.photoUrl || null,
+    };
+  }
 
   const ROWS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P'];
   const TOTAL_COLS = 29;
@@ -94,7 +71,7 @@
   }
 
   function classById(id) {
-    return CLASS_LIST.find((c) => c.id === id);
+    return GROUPS.find((c) => c.id === id);
   }
 
   function displayCode(seatId) {
@@ -133,7 +110,8 @@
     return pop;
   }
 
-  function showPop(seatEl, seatId, data, t) {
+  function showPop(seatEl, seatId, raw, t) {
+    const data = seatInfo(raw);
     const p = ensurePop();
     p.innerHTML = '';
     if (data && data.photoUrl) {
@@ -144,12 +122,13 @@
     }
     p.appendChild(el('div', 'seat-pop-id', `${t('seat')} ${seatId}`));
     if (data) {
+      if (data.vip) p.appendChild(el('div', 'vip-badge', 'VIP'));
       if (data.personName) p.appendChild(el('div', 'seat-pop-name', data.personName));
       const row = el('div', 'seat-pop-class');
       const dot = el('span', 'dot');
       dot.style.background = data.color;
       row.appendChild(dot);
-      row.appendChild(document.createTextNode(data.className || data.classId));
+      row.appendChild(document.createTextNode(data.name));
       p.appendChild(row);
     } else {
       p.appendChild(el('div', 'seat-pop-empty', t('available')));
@@ -193,11 +172,12 @@
     const hall = el('div', 'hall');
 
     function seat(seatId, extraClass) {
-      const data = layout.seatData[seatId];
+      const raw = layout.seatData[seatId];
+      const data = seatInfo(raw);
       const b = el('button', 'seat' + (extraClass ? ' ' + extraClass : ''));
       b.type = 'button';
       b.dataset.id = seatId;
-      b.setAttribute('aria-label', `${t('seat')} ${seatId}${data ? ', ' + (data.personName ? data.personName + ', ' : '') + (data.className || data.classId) : ', ' + t('available')}`);
+      b.setAttribute('aria-label', `${t('seat')} ${seatId}${data ? ', ' + (data.personName ? data.personName + ', ' : '') + data.name : ', ' + t('available')}`);
       b.appendChild(el('span', 'seat-num', displayCode(seatId)));
       if (data) {
         b.classList.add('taken');
@@ -205,15 +185,16 @@
         b.style.setProperty('--seat-ink', textOn(data.color));
         b.appendChild(el('span', 'seat-tag', data.classId));
         if (data.photoUrl || data.personName) b.classList.add('has-person');
+        if (data.vip) b.classList.add('vip');
       }
 
-      b.addEventListener('mouseenter', () => showPop(b, seatId, data, t));
+      b.addEventListener('mouseenter', () => showPop(b, seatId, raw, t));
       b.addEventListener('mouseleave', hidePop);
-      b.addEventListener('focus', () => showPop(b, seatId, data, t));
+      b.addEventListener('focus', () => showPop(b, seatId, raw, t));
       b.addEventListener('blur', hidePop);
       b.addEventListener('click', () => {
         if (opts.onSeatClick) opts.onSeatClick(seatId);
-        else showPop(b, seatId, data, t);
+        else showPop(b, seatId, raw, t);
       });
 
       if (editable) {
@@ -354,13 +335,14 @@
     let count = 0;
     let first = null;
     container.querySelectorAll('.seat[data-id]').forEach((s) => {
-      const d = layout.seatData[s.dataset.id];
+      const d = seatInfo(layout.seatData[s.dataset.id]);
       const hit =
         q &&
         d &&
         ((d.classId || '').toLowerCase().includes(q) ||
-          (d.className || '').toLowerCase().includes(q) ||
-          (d.personName || '').toLowerCase().includes(q));
+          d.name.toLowerCase().includes(q) ||
+          d.personName.toLowerCase().includes(q) ||
+          (d.vip && q === 'vip'));
       const seatHit = q && s.dataset.id.toLowerCase() === q;
       s.classList.toggle('match', !!(hit || seatHit));
       if (hit || seatHit) {
@@ -395,7 +377,7 @@
   }
 
   window.Hall = {
-    CLASS_LIST, ROWS, TOTAL_COLS, LEFT_COLS, CENTER_COLS, RIGHT_COLS,
+    setGroups, getGroups, seatInfo, ROWS, TOTAL_COLS, LEFT_COLS, CENTER_COLS, RIGHT_COLS,
     isBooth, emptyLayout, normalize, mainSeatIds, dynamicSeatIds, allSeatIds, stats,
     classById, render, highlight, hidePop, textOn, fit,
   };

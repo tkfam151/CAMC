@@ -103,7 +103,8 @@
   /* ---------------- Event ---------------- */
 
   async function showEvent(id) {
-    const data = await api(`/api/events/${encodeURIComponent(id)}`);
+    const [data, g] = await Promise.all([api(`/api/events/${encodeURIComponent(id)}`), api('/api/groups')]);
+    Hall.setGroups(g.groups);
     current = data.event;
     document.title = `${current.name} · CAMC Seating`;
     $('event-view').hidden = false;
@@ -136,21 +137,26 @@
 
   function renderLegend() {
     const counts = {};
-    Object.values(current.seatData || {}).forEach((d) => {
+    const vips = [];
+    Object.entries(current.seatData || {}).forEach(([seatId, raw]) => {
+      const d = Hall.seatInfo(raw);
       const k = d.classId || '?';
-      if (!counts[k]) counts[k] = { n: 0, color: d.color, name: d.className || k };
+      if (!counts[k]) counts[k] = { n: 0, color: d.color, name: d.name, vip: d.vip };
       counts[k].n++;
+      if (d.vip) vips.push({ seatId, ...d });
     });
+
     const legend = $('legend');
     legend.innerHTML = '';
-    const order = Hall.CLASS_LIST.map((c) => c.id);
+    const order = Hall.getGroups().map((c) => c.id);
+    const rank = (id) => (counts[id].vip ? -1000 : 0) + (order.indexOf(id) + 1 || 999);
     Object.keys(counts)
-      .sort((a, b) => (order.indexOf(a) + 1 || 999) - (order.indexOf(b) + 1 || 999))
+      .sort((a, b) => rank(a) - rank(b))
       .forEach((id) => {
         const c = counts[id];
         const chip = document.createElement('button');
         chip.type = 'button';
-        chip.className = 'chip';
+        chip.className = 'chip' + (c.vip ? ' chip-vip' : '');
         chip.setAttribute('aria-pressed', String(activeChip === id));
         chip.title = c.name;
         const dot = document.createElement('span');
@@ -159,7 +165,7 @@
         const n = document.createElement('span');
         n.className = 'n';
         n.textContent = c.n;
-        chip.append(dot, document.createTextNode(id), n);
+        chip.append(dot, document.createTextNode(c.vip ? c.name : id), n);
         chip.addEventListener('click', () => {
           activeChip = activeChip === id ? null : id;
           $('seat-search').value = activeChip || '';
@@ -167,6 +173,55 @@
           runSearch(true);
         });
         legend.appendChild(chip);
+      });
+
+    renderVipList(vips);
+  }
+
+  function renderVipList(vips) {
+    const list = $('vip-list');
+    list.innerHTML = '';
+    $('vip-section').hidden = vips.length === 0;
+    const named = vips.filter((v) => v.personName);
+    const show = named.length ? named : vips;
+    show
+      .sort((a, b) => a.name.localeCompare(b.name) || (a.personName || '').localeCompare(b.personName || ''))
+      .forEach((v) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'vip-item';
+        const av = document.createElement('span');
+        av.className = 'vip-avatar';
+        av.style.setProperty('--vip-color', v.color);
+        if (v.photoUrl) {
+          const img = document.createElement('img');
+          img.src = v.photoUrl;
+          img.alt = '';
+          av.appendChild(img);
+        } else {
+          av.textContent = (v.personName || v.name).trim().slice(0, 1).toUpperCase();
+        }
+        const text = document.createElement('span');
+        text.className = 'vip-text';
+        const nm = document.createElement('span');
+        nm.className = 'vip-name';
+        nm.textContent = v.personName || t('vipSeat');
+        const grp = document.createElement('span');
+        grp.className = 'vip-group';
+        grp.textContent = v.name;
+        text.append(nm, grp);
+        const seat = document.createElement('span');
+        seat.className = 'vip-seat';
+        seat.textContent = v.seatId;
+        b.append(av, text, seat);
+        b.addEventListener('click', () => {
+          activeChip = null;
+          $('seat-search').value = v.seatId;
+          runSearch(true);
+          document.querySelectorAll('#legend .chip').forEach((c) => c.setAttribute('aria-pressed', 'false'));
+          $('hall-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+        list.appendChild(b);
       });
   }
 
