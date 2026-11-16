@@ -22,18 +22,17 @@ The website is hosted free on **GitHub Pages**, and all data lives in **Supabase
 
 ### 2. Connect the website
 
-Choose one:
-
-- **Edit [`public/config.js`](public/config.js)** and paste the two values in, or
-- in GitHub go to **Settings → Secrets and variables → Actions → Variables** and add `SUPABASE_URL` and `SUPABASE_ANON_KEY`. The deploy workflow writes them into `config.js` for you.
+Edit [`docs/config.js`](docs/config.js) (you can do it on github.com with the pencil icon) and paste the two values in.
 
 The anon key is designed to be public. Never use the **service_role** key here.
 
 ### 3. GitHub Pages
 
-1. In the repository go to **Settings → Pages** and set **Source** to **GitHub Actions**.
-2. Push to the default branch, or open **Actions → Deploy to GitHub Pages → Run workflow**.
-3. The site appears at `https://<your-username>.github.io/<repository>/`. The teacher page is at `…/teacher/`.
+1. In the repository go to **Settings → Pages**.
+2. Under **Build and deployment** choose **Source: Deploy from a branch**, then pick the branch and the **`/docs`** folder, and press **Save**.
+3. After a minute the site appears at `https://<your-username>.github.io/<repository>/`. The teacher page is at `…/teacher/`.
+
+Every push to that branch publishes the site again automatically.
 
 ## Administrator account
 
@@ -63,11 +62,11 @@ GitHub Pages only serves static files, so the browser talks to Supabase directly
 Any static file server works, for example:
 
 ```bash
-python3 -m http.server 8000 --directory public
+python3 -m http.server 8000 --directory docs
 # open http://localhost:8000/
 ```
 
-`public/config.js` must point at your Supabase project.
+`docs/config.js` must point at your Supabase project.
 
 ## Importing old layouts
 
