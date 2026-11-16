@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Teacher · CAMC Seating</title>
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#f5f5f7" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+  <link rel="icon" href="/img/icon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<nav class="gnav" aria-label="Global">
+  <div class="wrap wrap-wide">
+    <a class="brand" href="/teacher">
+      <span class="brand-mark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h10a2 2 0 0 1 2 2v7H5V5a2 2 0 0 1 2-2zM3 13h18v3.5H3zM5 16.5h2.2V21H5zM16.8 16.5H19V21h-2.2z"/></svg></span>
+      <span data-i18n="brand">CAMC Seating</span>
+    </a>
+    <div class="gnav-links">
+      <a href="/" class="hide-sm" data-i18n="backToViewer">View public seating</a>
+      <span class="user-chip" id="user-chip" hidden>
+        <span class="avatar" id="user-avatar"></span>
+        <span class="hide-sm" id="user-name"></span>
+      </span>
+      <button class="link" type="button" id="btn-password" hidden data-i18n="changePassword">Change Password</button>
+      <button class="link" type="button" id="btn-signout" hidden data-i18n="signOut">Sign Out</button>
+      <button class="lang-toggle" type="button" aria-label="Language">ไทย</button>
+    </div>
+  </div>
+</nav>
+
+<div id="loading" class="loading"><div class="spinner"></div></div>
+
+<!-- ========== Sign in ========== -->
+<main id="view-signin" class="signin" hidden>
+  <div class="signin-box">
+    <div class="brand-mark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h10a2 2 0 0 1 2 2v7H5V5a2 2 0 0 1 2-2zM3 13h18v3.5H3zM5 16.5h2.2V21H5zM16.8 16.5H19V21h-2.2z"/></svg></div>
+    <h1 data-i18n="signInTitle">Sign in to CAMC Seating</h1>
+    <p data-i18n="signInSub">For teachers and administrators.</p>
+    <form class="signin-form" id="signin-form" novalidate>
+      <div class="input-group">
+        <input class="input" id="si-user" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required data-i18n-placeholder="username" data-i18n-aria="username">
+        <input class="input" id="si-pass" name="password" type="password" autocomplete="current-password" required data-i18n-placeholder="password" data-i18n-aria="password">
+      </div>
+      <button class="submit" type="submit" data-i18n-aria="signIn" aria-label="Sign In">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      </button>
+    </form>
+    <div class="form-error" id="si-error" role="alert"></div>
+    <div class="signin-foot"><a href="/" data-i18n="backToViewer">View public seating</a></div>
+  </div>
+</main>
+
+<!-- ========== Admin: teacher accounts ========== -->
+<main id="view-admin" hidden>
+  <div class="wrap">
+    <header class="page-head">
+      <div class="grow">
+        <p class="eyebrow" data-i18n="admin">Administrator</p>
+        <h1 class="section-title" data-i18n="adminTitle">Teacher Accounts</h1>
+        <p class="section-sub" data-i18n="adminSub">Create accounts so teachers can sign in and manage seating charts.</p>
+      </div>
+    </header>
+    <div class="admin-grid">
+      <form class="card card-pad" id="teacher-form" novalidate>
+        <h3 data-i18n="newTeacher">New Teacher Account</h3>
+        <div class="stack" style="display:flex;flex-direction:column;gap:14px;margin-top:18px">
+          <div class="field"><label for="tf-name" data-i18n="fullName">Full name</label><input class="input" id="tf-name" autocomplete="off"></div>
+          <div class="field"><label for="tf-user" data-i18n="username">Username</label><input class="input" id="tf-user" autocomplete="off" autocapitalize="none" spellcheck="false" required></div>
+          <div class="field"><label for="tf-pass" data-i18n="password">Password</label><input class="input" id="tf-pass" type="text" autocomplete="new-password" required minlength="6"></div>
+          <div class="form-error" id="tf-error" role="alert" style="text-align:left;margin:0;min-height:0"></div>
+          <button class="btn btn-lg btn-block" type="submit" data-i18n="createAccount">Create Account</button>
+        </div>
+      </form>
+      <section class="card card-pad">
+        <h3 data-i18n="teachers">Teachers</h3>
+        <table class="table" style="margin-top:16px">
+          <thead><tr><th data-i18n="fullName">Full name</th><th data-i18n="username">Username</th><th data-i18n="created">Created</th></tr></thead>
+          <tbody id="teacher-rows"></tbody>
+        </table>
+        <p class="muted small" id="no-teachers" hidden data-i18n="noTeachers">No teacher accounts yet.</p>
+      </section>
+    </div>
+  </div>
+</main>
+
+<!-- ========== Teacher: event list ========== -->
+<main id="view-dashboard" hidden>
+  <div class="wrap">
+    <header class="page-head">
+      <div class="grow">
+        <p class="eyebrow" id="greeting"></p>
+        <h1 class="section-title" data-i18n="myEvents">Seating Charts</h1>
+        <p class="section-sub" data-i18n="myEventsSub">Create and edit the seating plan for each event.</p>
+      </div>
+      <div class="search" style="width:280px;max-width:100%">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+        <input id="dash-search" type="search" autocomplete="off" data-i18n-placeholder="searchEvents" data-i18n-aria="searchEvents">
+      </div>
+    </header>
+    <div class="event-grid" id="dash-list"></div>
+  </div>
+</main>
+
+<!-- ========== Teacher: editor ========== -->
+<div id="view-editor" hidden>
+  <div class="lnav">
+    <div class="wrap wrap-wide">
+      <a class="back-link" href="#/" id="ed-back">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+        <span data-i18n="myEvents">Seating Charts</span>
+      </a>
+      <input class="event-name-input" id="ed-name" maxlength="120" data-i18n-aria="newEventPrompt">
+      <span class="status" id="ed-status"></span>
+      <div class="lnav-actions">
+        <div class="search search-sm" style="width:220px">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+          <input id="ed-search" type="search" autocomplete="off" data-i18n-placeholder="findInChart" data-i18n-aria="findInChart">
+        </div>
+        <div class="segmented" role="group">
+          <button type="button" id="ed-lbl-num" aria-pressed="true" data-i18n="labelsNumbers">Numbers</button>
+          <button type="button" id="ed-lbl-cls" aria-pressed="false" data-i18n="labelsClasses">Classes</button>
+        </div>
+        <button class="btn btn-secondary btn-sm" type="button" id="ed-undo" disabled>
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>
+          <span data-i18n="undo">Undo</span>
+        </button>
+        <button class="btn btn-sm" type="button" id="ed-save" data-i18n="save">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="wrap wrap-wide">
+    <div class="editor">
+      <div>
+        <div class="hall-card" id="ed-hall-card">
+          <div class="hall-scroll" id="ed-hall"></div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;margin-top:12px" class="no-print">
+          <label class="range"><span data-i18n="zoom">Zoom</span><input type="range" id="ed-zoom" min="14" max="36" value="24"></label>
+        </div>
+      </div>
+
+      <aside class="inspector">
+        <div class="stats compact">
+          <div class="stat"><div class="stat-label" data-i18n="totalSeats">Capacity</div><div class="stat-value" id="ed-total">0</div></div>
+          <div class="stat"><div class="stat-label" data-i18n="allocated">Assigned</div><div class="stat-value" id="ed-alloc">0</div></div>
+          <div class="stat"><div class="stat-label" data-i18n="remaining">Available</div><div class="stat-value" id="ed-remain">0</div></div>
+          <div class="stat"><div class="stat-label" data-i18n="occupancy">Occupancy</div><div class="stat-value" id="ed-rate">0%</div><div class="meter"><i id="ed-meter"></i></div></div>
+        </div>
+
+        <section class="panel">
+          <h3 data-i18n="autoAllocate">Auto Allocate</h3>
+          <p class="panel-sub" data-i18n="autoAllocateSub">Fill empty seats for a class in a chosen direction.</p>
+          <div class="stack">
+            <div class="row2">
+              <div class="field"><label for="al-class" data-i18n="class">Class</label><select class="select select-sm" id="al-class"></select></div>
+              <div class="field"><label for="al-count" data-i18n="count">People</label><input class="input input-sm" id="al-count" type="number" min="1" inputmode="numeric"></div>
+            </div>
+            <div class="field">
+              <label for="al-mode" data-i18n="direction">Direction</label>
+              <select class="select select-sm" id="al-mode">
+                <option value="HORIZ_1_TO_29" data-i18n="dirH1"></option>
+                <option value="HORIZ_29_TO_1" data-i18n="dirH2"></option>
+                <option value="ZONE_RIGHT_VER" data-i18n="dirV1"></option>
+                <option value="ZONE_CENTER_VER" data-i18n="dirV2"></option>
+                <option value="ZONE_LEFT_VER" data-i18n="dirV3"></option>
+              </select>
+            </div>
+            <label class="check"><input type="checkbox" id="al-buffer"><span data-i18n="buffer">Leave one empty seat before this group</span></label>
+            <button class="btn btn-block" type="button" id="al-run" data-i18n="allocate">Allocate</button>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h3 data-i18n="classesHere">Classes in this event</h3>
+          <p class="panel-sub" data-i18n="addSeatsSub">Use the + buttons on the chart to add balcony, aisle and back-row seats.</p>
+          <div class="legend" id="ed-legend"></div>
+        </section>
+
+        <section class="panel">
+          <h3 data-i18n="eventSettings">Event</h3>
+          <div class="stack" style="margin-top:12px">
+            <div class="field"><label for="ed-date" data-i18n="eventDate">Date</label><input class="input input-sm" id="ed-date" type="date"></div>
+            <div class="list-actions">
+              <a class="btn btn-ghost" id="ed-public" href="/" target="_blank" rel="noopener">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>
+                <span data-i18n="viewPublic">View Public Page</span>
+              </a>
+              <button class="btn btn-ghost" type="button" onclick="window.print()">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V3h12v6M6 18H4a1 1 0 0 1-1-1v-6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v6a1 1 0 0 1-1 1h-2M6 14h12v7H6z"/></svg>
+                <span data-i18n="print">Print</span>
+              </button>
+              <button class="btn btn-ghost" type="button" id="ed-export">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>
+                <span data-i18n="exportJson">Export JSON</span>
+              </button>
+              <button class="btn btn-ghost" type="button" id="ed-import">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3M7 8l5-5 5 5M5 21h14"/></svg>
+                <span data-i18n="importJson">Import JSON</span>
+              </button>
+              <input type="file" id="ed-import-file" accept=".json,application/json" hidden>
+              <button class="btn btn-danger" type="button" id="ed-clear">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5"/></svg>
+                <span data-i18n="clearAll">Clear All Seats</span>
+              </button>
+              <button class="btn btn-danger" type="button" id="ed-delete">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>
+                <span data-i18n="deleteEvent">Delete Event</span>
+              </button>
+            </div>
+          </div>
+        </section>
+      </aside>
+    </div>
+  </div>
+</div>
+
+<!-- ========== Seat sheet ========== -->
+<div class="modal" id="seat-modal" aria-hidden="true">
+  <form class="sheet" id="seat-form" role="dialog" aria-modal="true" aria-labelledby="sm-title">
+    <h2 id="sm-title"></h2>
+    <p class="sheet-sub" id="sm-sub"></p>
+    <div class="stack">
+      <div class="field">
+        <label for="sm-class" data-i18n="class">Class</label>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="class-swatch" id="sm-swatch"></span>
+          <select class="select" id="sm-class"></select>
+        </div>
+      </div>
+      <div class="field">
+        <label for="sm-person" data-i18n="personName">Name (optional)</label>
+        <input class="input" id="sm-person" maxlength="120" data-i18n-placeholder="personPlaceholder" autocomplete="off">
+      </div>
+      <div class="field">
+        <span class="label" data-i18n="photo">Photo (optional)</span>
+        <div class="photo-row">
+          <div class="photo-preview" id="sm-photo-preview">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" style="width:24px;height:24px"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+          </div>
+          <button class="btn btn-secondary btn-sm" type="button" id="sm-photo-btn" data-i18n="choosePhoto">Choose Photo</button>
+          <button class="btn btn-danger btn-sm" type="button" id="sm-photo-clear" data-i18n="removePhoto">Remove</button>
+          <input type="file" id="sm-photo" accept="image/*" hidden>
+        </div>
+      </div>
+    </div>
+    <div class="sheet-actions">
+      <div class="left">
+        <button class="btn btn-danger btn-sm" type="button" id="sm-clear" data-i18n="clearSeat">Clear Seat</button>
+        <button class="btn btn-danger btn-sm" type="button" id="sm-remove" data-i18n="removeSeat">Remove Seat</button>
+      </div>
+      <button class="btn btn-secondary" type="button" data-close data-i18n="cancel">Cancel</button>
+      <button class="btn" type="submit" data-i18n="done">Done</button>
+    </div>
+  </form>
+</div>
+
+<!-- ========== New event sheet ========== -->
+<div class="modal" id="new-modal" aria-hidden="true">
+  <form class="sheet" id="new-form" role="dialog" aria-modal="true" aria-labelledby="ne-title" novalidate>
+    <h2 id="ne-title" data-i18n="newEvent">New Event</h2>
+    <div class="stack">
+      <div class="field"><label for="ne-name" data-i18n="newEventPrompt">Event name</label><input class="input" id="ne-name" maxlength="120" required autocomplete="off"></div>
+      <div class="field"><label for="ne-date" data-i18n="eventDate">Date</label><input class="input" id="ne-date" type="date"></div>
+    </div>
+    <div class="form-error" id="ne-error" role="alert" style="text-align:left"></div>
+    <div class="sheet-actions" style="margin-top:8px">
+      <button class="btn btn-secondary" type="button" data-close data-i18n="cancel">Cancel</button>
+      <button class="btn" type="submit" data-i18n="create">Create</button>
+    </div>
+  </form>
+</div>
+
+<!-- ========== Password sheet ========== -->
+<div class="modal" id="pw-modal" aria-hidden="true">
+  <form class="sheet" id="pw-form" role="dialog" aria-modal="true" aria-labelledby="pw-title" novalidate>
+    <h2 id="pw-title" data-i18n="changePassword">Change Password</h2>
+    <div class="stack">
+      <div class="field"><label for="pw-cur" data-i18n="currentPassword">Current password</label><input class="input" id="pw-cur" type="password" autocomplete="current-password"></div>
+      <div class="field"><label for="pw-new" data-i18n="newPassword">New password</label><input class="input" id="pw-new" type="password" autocomplete="new-password" minlength="6"></div>
+    </div>
+    <div class="form-error" id="pw-error" role="alert" style="text-align:left"></div>
+    <div class="sheet-actions" style="margin-top:8px">
+      <button class="btn btn-secondary" type="button" data-close data-i18n="cancel">Cancel</button>
+      <button class="btn" type="submit" data-i18n="save">Save</button>
+    </div>
+  </form>
+</div>
+
+<script src="/js/common.js"></script>
+<script src="/js/hall.js"></script>
+<script src="/js/teacher.js"></script>
+</body>
+</html>
