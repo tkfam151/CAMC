@@ -1,7 +1,7 @@
 /* Teacher portal: sign in, admin account management, seating chart editor. */
 (function () {
   'use strict';
-  const { t, api, applyI18n, onLangChange, formatDate, toast, debounce } = window.CAMC;
+  const { t, applyI18n, onLangChange, formatDate, toast, debounce } = window.CAMC;
   const $ = (id) => document.getElementById(id);
 
   let me = null;
@@ -79,7 +79,7 @@
   }
 
   async function loadGroups() {
-    const { groups } = await api('/api/groups');
+    const { groups } = await DB.listGroups();
     Hall.setGroups(groups);
     return groups;
   }
@@ -101,7 +101,7 @@
     const btn = e.target.querySelector('.submit');
     btn.disabled = true;
     try {
-      const data = await api('/api/login', { method: 'POST', body: { username, password } });
+      const data = await DB.login(username, password);
       me = data.user;
       $('si-pass').value = '';
       route();
@@ -116,7 +116,7 @@
   $('btn-signout').addEventListener('click', async () => {
     if (dirty && !confirm(t('confirmLeave'))) return;
     dirty = false;
-    await api('/api/logout', { method: 'POST' }).catch(() => {});
+    await DB.logout();
     me = null;
     undoStack = [];
     location.hash = '';
@@ -160,7 +160,7 @@
     e.preventDefault();
     $('pw-error').textContent = '';
     try {
-      await api('/api/password', { method: 'POST', body: { currentPassword: $('pw-cur').value, newPassword: $('pw-new').value } });
+      await DB.changePassword($('pw-cur').value, $('pw-new').value);
       closeModal('pw-modal');
       toast(t('passwordChanged'));
     } catch (err) {
@@ -178,7 +178,7 @@
   }
 
   async function loadTeachers() {
-    const { teachers } = await api('/api/teachers');
+    const { teachers } = await DB.listTeachers();
     const tbody = $('teacher-rows');
     tbody.innerHTML = '';
     teachers
@@ -214,7 +214,7 @@
     $('tf-error').textContent = '';
     const body = { name: $('tf-name').value.trim(), username: $('tf-user').value.trim(), password: $('tf-pass').value };
     try {
-      const { teacher } = await api('/api/teachers', { method: 'POST', body });
+      const { teacher } = await DB.createTeacher(body);
       toast(t('accountCreated', teacher.username));
       e.target.reset();
       await loadTeachers();
@@ -366,9 +366,9 @@
     try {
       let saved;
       if (editingGroup) {
-        saved = (await api(`/api/groups/${encodeURIComponent(editingGroup.id)}`, { method: 'PUT', body })).group;
+        saved = (await DB.updateGroup(editingGroup.id, body)).group;
       } else {
-        saved = (await api('/api/groups', { method: 'POST', body: { ...body, id: $('gm-code').value.trim() } })).group;
+        saved = (await DB.createGroup({ ...body, id: $('gm-code').value.trim() })).group;
       }
       closeModal('group-modal');
       toast(t('groupSaved', saved.name));
@@ -383,7 +383,7 @@
     const g = editingGroup;
     if (!g || !confirm(t('confirmDeleteGroup', g.name))) return;
     try {
-      await api(`/api/groups/${encodeURIComponent(g.id)}`, { method: 'DELETE' });
+      await DB.deleteGroup(g.id);
       closeModal('group-modal');
       await groupsChanged();
     } catch (err) {
@@ -411,7 +411,7 @@
     document.title = 'Teacher · CAMC Seating';
     $('greeting').textContent = me.name;
     show('view-dashboard');
-    const data = await api('/api/events');
+    const data = await DB.listEvents();
     events = data.events;
     renderDashboard();
   }
@@ -487,7 +487,7 @@
     const name = $('ne-name').value.trim();
     if (!name) { $('ne-error').textContent = t('newEventPrompt'); return; }
     try {
-      const { event } = await api('/api/events', { method: 'POST', body: { name, date: $('ne-date').value, ...Hall.emptyLayout() } });
+      const { event } = await DB.createEvent({ name, date: $('ne-date').value, ...Hall.emptyLayout() });
       closeModal('new-modal');
       location.hash = `#/event/${event.id}`;
     } catch (err) {
@@ -504,7 +504,7 @@
     $('loading').hidden = false;
     VIEWS.forEach((v) => ($(v).hidden = true));
     try {
-      const [{ event }] = await Promise.all([api(`/api/events/${encodeURIComponent(id)}`), loadGroups()]);
+      const [{ event }] = await Promise.all([DB.getEvent(id), loadGroups()]);
       ev = { id: event.id, name: event.name, date: event.date || '' };
       layout = Hall.normalize(JSON.parse(JSON.stringify(event)));
       layout = { seatData: layout.seatData, extraSeatList: layout.extraSeatList, balconySeatList: layout.balconySeatList, walkwaySeatList: layout.walkwaySeatList };
@@ -513,7 +513,7 @@
       $('ed-name').value = ev.name;
       $('ed-date').value = ev.date;
       $('ed-search').value = '';
-      $('ed-public').href = `/?event=${encodeURIComponent(ev.id)}`;
+      $('ed-public').href = `../?event=${encodeURIComponent(ev.id)}`;
       document.title = `${ev.name} · CAMC Seating`;
       show('view-editor');
       populateClassSelects();
@@ -558,7 +558,7 @@
     saving = true;
     updateStatus();
     try {
-      await api(`/api/events/${encodeURIComponent(ev.id)}`, { method: 'PUT', body: { name, date: $('ed-date').value, ...layout } });
+      await DB.updateEvent(ev.id, { name, date: $('ed-date').value, ...layout });
       ev.name = name;
       ev.date = $('ed-date').value;
       document.title = `${ev.name} · CAMC Seating`;
@@ -912,7 +912,7 @@
   $('ed-delete').addEventListener('click', async () => {
     if (!confirm(t('confirmDelete', ev.name))) return;
     try {
-      await api(`/api/events/${encodeURIComponent(ev.id)}`, { method: 'DELETE' });
+      await DB.deleteEvent(ev.id);
       dirty = false;
       ev = null;
       location.hash = '#/';
@@ -988,9 +988,25 @@
   /* Boot                                                             */
   /* ================================================================ */
 
+  // Any request that finds the session has expired sends the teacher back to sign in.
+  window.addEventListener('unhandledrejection', (e) => {
+    if (e.reason && e.reason.status === 401 && me) {
+      me = null;
+      dirty = false;
+      toast(e.reason.message, 'error');
+      route();
+    }
+  });
+
   applyI18n();
-  api('/api/me')
-    .then((d) => { me = d.user; })
-    .catch(() => { me = null; })
-    .finally(route);
+  if (!DB.configured) {
+    route();
+    $('si-error').textContent = t('notConfigured');
+    $('signin-form').querySelectorAll('input, button').forEach((n) => (n.disabled = true));
+  } else {
+    DB.me()
+      .then((d) => { me = d.user; })
+      .catch(() => { me = null; })
+      .finally(route);
+  }
 })();

@@ -4,6 +4,7 @@
 
   const STRINGS = {
     en: {
+      notConfigured: 'This site isn’t connected to Supabase yet. Add your project URL and anon key to config.js (see README).',
       navGroups: 'Classes & VIP',
       groupsSub: 'Add the classes and VIP groups used on seating charts. Changes apply to every event.',
       classes: 'Classes',
@@ -144,6 +145,7 @@
       teacher: 'Teacher',
     },
     th: {
+      notConfigured: 'เว็บไซต์ยังไม่ได้เชื่อมต่อกับ Supabase กรุณาใส่ Project URL และ anon key ใน config.js (ดู README)',
       navGroups: 'ห้องเรียนและ VIP',
       groupsSub: 'เพิ่มห้องเรียนและกลุ่ม VIP ที่ใช้ในผังที่นั่ง การแก้ไขจะมีผลกับทุกงาน',
       classes: 'ห้องเรียน',
@@ -318,25 +320,6 @@
     if (e.target.closest('.lang-toggle')) setLang(lang === 'th' ? 'en' : 'th');
   });
 
-  async function api(path, options = {}) {
-    const opts = { credentials: 'same-origin', ...options, headers: { ...(options.headers || {}) } };
-    if (opts.body && typeof opts.body !== 'string') {
-      opts.body = JSON.stringify(opts.body);
-      opts.headers['Content-Type'] = 'application/json';
-    } else if (opts.method && opts.method !== 'GET') {
-      opts.headers['Content-Type'] = 'application/json';
-    }
-    const res = await fetch(path, opts);
-    let data = {};
-    try { data = await res.json(); } catch { /* no body */ }
-    if (!res.ok) {
-      const err = new Error(data.error || t('loadError'));
-      err.status = res.status;
-      throw err;
-    }
-    return data;
-  }
-
   function formatDate(iso, withTime) {
     if (!iso) return '';
     const d = new Date(iso.length <= 10 ? iso + 'T00:00:00' : iso);
@@ -369,5 +352,5 @@
     return (...a) => { clearTimeout(id); id = setTimeout(() => fn(...a), ms); };
   }
 
-  window.CAMC = { t, applyI18n, setLang, onLangChange, getLang: () => lang, api, formatDate, toast, debounce };
+  window.CAMC = { t, applyI18n, setLang, onLangChange, getLang: () => lang, formatDate, toast, debounce };
 })();

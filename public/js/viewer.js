@@ -1,7 +1,7 @@
 /* Public viewer: search events and view their seating plans (read-only). */
 (function () {
   'use strict';
-  const { t, api, applyI18n, onLangChange, formatDate, debounce } = window.CAMC;
+  const { t, applyI18n, onLangChange, formatDate, debounce } = window.CAMC;
   const $ = (id) => document.getElementById(id);
 
   let events = [];
@@ -32,7 +32,7 @@
       $('list-view').hidden = false;
       $('event-list').innerHTML = '';
       $('event-empty').hidden = false;
-      $('event-empty').textContent = err.status === 404 ? t('eventNotFound') : t('loadError');
+      $('event-empty').textContent = err.status === 404 ? t('eventNotFound') : err.status === 503 ? t('notConfigured') : t('loadError');
     } finally {
       $('loading').hidden = true;
     }
@@ -48,7 +48,7 @@
 
   async function showList() {
     document.title = 'CAMC Seating';
-    const data = await api('/api/events');
+    const data = await DB.listEvents();
     events = data.events;
     $('list-view').hidden = false;
     renderList();
@@ -63,7 +63,7 @@
     filtered.forEach((e) => {
       const a = document.createElement('a');
       a.className = 'event-card';
-      a.href = `/?event=${encodeURIComponent(e.id)}`;
+      a.href = `?event=${encodeURIComponent(e.id)}`;
       a.addEventListener('click', (ev) => {
         if (ev.metaKey || ev.ctrlKey || ev.shiftKey) return;
         ev.preventDefault();
@@ -103,7 +103,7 @@
   /* ---------------- Event ---------------- */
 
   async function showEvent(id) {
-    const [data, g] = await Promise.all([api(`/api/events/${encodeURIComponent(id)}`), api('/api/groups')]);
+    const [data, g] = await Promise.all([DB.getEvent(id), DB.listGroups()]);
     Hall.setGroups(g.groups);
     current = data.event;
     document.title = `${current.name} · CAMC Seating`;
@@ -245,7 +245,7 @@
     runSearch(true);
   }, 150));
   $('seat-search-clear').addEventListener('click', () => { $('seat-search').value = ''; activeChip = null; renderLegend(); runSearch(false); });
-  $('back-link').addEventListener('click', (e) => { e.preventDefault(); navigate('/'); });
+  $('back-link').addEventListener('click', (e) => { e.preventDefault(); navigate(location.pathname); });
 
   function setLabels(classes) {
     showClasses = classes;

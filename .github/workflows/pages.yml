@@ -1,0 +1,51 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main, claude/dazzling-cerf-sjuhzy]
+    paths: ['public/**', '.github/workflows/pages.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # Optional: if the repository variables SUPABASE_URL and SUPABASE_ANON_KEY
+      # are set (Settings → Secrets and variables → Actions → Variables), write
+      # them into config.js. Otherwise the committed config.js is used as-is.
+      - name: Write Supabase config
+        env:
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
+        run: |
+          if [ -n "$SUPABASE_URL" ] && [ -n "$SUPABASE_ANON_KEY" ]; then
+            node -e '
+              const fs = require("fs");
+              const cfg = { supabaseUrl: process.env.SUPABASE_URL.trim(), supabaseAnonKey: process.env.SUPABASE_ANON_KEY.trim() };
+              fs.writeFileSync("public/config.js", "window.CAMC_CONFIG = " + JSON.stringify(cfg, null, 2) + ";\n");
+            '
+            echo "Using Supabase settings from repository variables."
+          else
+            echo "Repository variables not set; using public/config.js from the repository."
+          fi
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+      - id: deployment
+        uses: actions/deploy-pages@v4

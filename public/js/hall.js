@@ -17,7 +17,7 @@
       color: g ? g.color : data.color || '#8e8e93',
       vip: g ? g.kind === 'vip' : /vip/i.test(data.classId || ''),
       personName: data.personName || '',
-      photoUrl: data.photoUrl || null,
+      photoUrl: typeof data.photoUrl === 'string' && data.photoUrl.startsWith('data:image/') ? data.photoUrl : null,
     };
   }
 
