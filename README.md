@@ -7,6 +7,8 @@ The website is hosted free on **GitHub Pages**, and all data lives in **Supabase
 | --- | --- | --- |
 | `/` | Everyone | Search for an event and view its seating plan. Find a class, a person or a seat number, and see the VIP guests. |
 | `/teacher/` | Teachers | Create events and edit seating charts (auto-allocate, drag to swap, names and photos, extra seats, import/export JSON). Add and edit **classes** and **VIP groups** under **Classes & VIP**. |
+| `/loykrathong/` | Everyone | Build a krathong (base, petals, flowers, candles, incense, decoration), add a name and a wish, and float it. No sign-in needed. |
+| `/liveloykrathong/` | Big screen | A night river where every krathong floats past with its wish. New ones appear within a few seconds. Includes a QR code to the builder. |
 | `/teacher/` | Administrator | Sign in as `camcadmin` to create teacher accounts. The administrator cannot edit seating charts, classes or VIP groups. |
 
 ## Setup
@@ -48,6 +50,15 @@ Teachers manage these at `/teacher/` → **Classes & VIP** (or with **New Class 
 - **Classes** are the student groups used by auto-allocate, e.g. `7A`.
 - **VIP groups** are guest categories, e.g. `VIP-Board` for the Board of Directors. To seat a VIP guest, click a seat in the editor, choose the VIP group and type the guest's name (a photo is optional). VIP seats are marked with a star and listed under **VIP Guests** on the public page.
 - Changing a group's name or colour updates every event. A group's code can't be changed after it is created. Deleting a group keeps the seats that already use it, in their last colour.
+
+## Loy Krathong
+
+- **Builder:** share `…/loykrathong/` (or let people scan the QR code on the live river).
+- **Live river:** open `…/liveloykrathong/` on the projector computer and press **Full Screen**. The controls and cursor hide after a few seconds.
+- **Moderation:** teachers sign in at `/teacher/` → **Loy Krathong** to hide or delete krathongs, turn **Accepting krathongs** off when the event ends, or **Clear All Krathongs** to start fresh next year. Hidden krathongs leave the live river within about 30 seconds.
+- **Limits:** names up to 40 characters, wishes up to 140. Up to 120 krathongs per network every 10 minutes (phones on school Wi-Fi share one network address), and 300 per minute overall.
+
+If you set up the database before Loy Krathong was added, run `supabase/schema.sql` again in the SQL Editor to add it. Nothing existing is changed.
 
 ## How it is secured
 

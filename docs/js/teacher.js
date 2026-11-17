@@ -24,7 +24,7 @@
     if (size) $('ed-zoom').value = size;
   }
 
-  const VIEWS = ['view-signin', 'view-admin', 'view-dashboard', 'view-groups', 'view-editor'];
+  const VIEWS = ['view-signin', 'view-admin', 'view-dashboard', 'view-groups', 'view-krathongs', 'view-editor'];
   function show(view) {
     $('loading').hidden = true;
     VIEWS.forEach((v) => ($(v).hidden = v !== view));
@@ -64,6 +64,7 @@
     if (m) return openEditor(m[1]);
     if (!leaveEditorOk()) return;
     if (location.hash.startsWith('#/groups')) return showGroups();
+    if (location.hash.startsWith('#/krathongs')) return showKrathongs();
     return showDashboard();
   }
 
@@ -236,6 +237,114 @@
   let groupKind = 'class';
   let groupColor = PALETTE[8];
   let afterGroupSave = null;
+
+  /* ================================================================ */
+  /* Loy Krathong moderation                                          */
+  /* ================================================================ */
+
+  let krathongs = [];
+
+  async function showKrathongs() {
+    document.title = `${t('navKrathong')} · CAMC`;
+    $('greeting-kt').textContent = me.name;
+    show('view-krathongs');
+    try {
+      const [list, status] = await Promise.all([DB.listAllKrathongs(), DB.krathongStatus()]);
+      krathongs = list;
+      $('kt-open').checked = !!(status && status.open);
+      renderKrathongs();
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  }
+
+  function renderKrathongs() {
+    const grid = $('kt-grid');
+    grid.innerHTML = '';
+    const hidden = krathongs.filter((k) => k.hidden).length;
+    $('kt-total').textContent = t('ktTotal', krathongs.length, hidden);
+    $('kt-empty').hidden = krathongs.length > 0;
+    $('kt-clear').disabled = krathongs.length === 0;
+    krathongs.forEach((k) => {
+      const card = document.createElement('article');
+      card.className = 'kt-card' + (k.hidden ? ' is-hidden' : '');
+      const art = document.createElement('div');
+      art.className = 'kt-card-art';
+      art.innerHTML = Krathong.svg(k.design);
+      const name = document.createElement('div');
+      name.className = 'kt-card-name';
+      name.textContent = k.name || t('ktFriend');
+      const wish = document.createElement('div');
+      wish.className = 'kt-card-wish';
+      wish.textContent = k.wish;
+      const meta = document.createElement('div');
+      meta.className = 'kt-card-meta';
+      meta.textContent = formatDate(k.createdAt, true);
+      if (k.hidden) {
+        const b = document.createElement('span');
+        b.className = 'badge';
+        b.textContent = t('ktHidden');
+        meta.appendChild(b);
+      }
+      const actions = document.createElement('div');
+      actions.className = 'kt-card-actions';
+      const toggle = document.createElement('button');
+      toggle.type = 'button';
+      toggle.className = 'btn btn-secondary btn-sm';
+      toggle.textContent = k.hidden ? t('ktShow') : t('ktHide');
+      toggle.addEventListener('click', async () => {
+        toggle.disabled = true;
+        try {
+          await DB.setKrathongHidden(k.id, !k.hidden);
+          k.hidden = !k.hidden;
+          renderKrathongs();
+        } catch (err) {
+          toast(err.message, 'error');
+          toggle.disabled = false;
+        }
+      });
+      const del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'btn btn-danger btn-sm';
+      del.textContent = t('delete');
+      del.addEventListener('click', async () => {
+        if (!confirm(t('ktConfirmDelete'))) return;
+        try {
+          await DB.deleteKrathong(k.id);
+          krathongs = krathongs.filter((x) => x.id !== k.id);
+          renderKrathongs();
+        } catch (err) {
+          toast(err.message, 'error');
+        }
+      });
+      actions.append(toggle, del);
+      card.append(art, name, wish, meta, actions);
+      grid.appendChild(card);
+    });
+  }
+
+  $('kt-open').addEventListener('change', async (e) => {
+    const want = e.target.checked;
+    try {
+      const status = await DB.setKrathongOpen(want);
+      e.target.checked = !!status.open;
+    } catch (err) {
+      e.target.checked = !want;
+      toast(err.message, 'error');
+    }
+  });
+
+  $('kt-clear').addEventListener('click', async () => {
+    if (!confirm(t('ktConfirmClear'))) return;
+    try {
+      const n = await DB.clearKrathongs();
+      krathongs = [];
+      renderKrathongs();
+      toast(t('ktCleared', n));
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  });
 
   async function showGroups() {
     document.title = `${t('navGroups')} · CAMC Seating`;
@@ -982,6 +1091,7 @@
     if (!$('view-editor').hidden) { populateClassSelects(); renderEditor(); }
     if (!$('view-admin').hidden) loadTeachers();
     if (!$('view-groups').hidden) renderGroups();
+    if (!$('view-krathongs').hidden) renderKrathongs();
   });
 
   /* ================================================================ */

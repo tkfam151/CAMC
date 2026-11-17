@@ -485,5 +485,180 @@ begin
   end if;
 end $$;
 
+/* ================================================================== */
+/* Loy Krathong                                                        */
+/*                                                                     */
+/* Anyone can float a krathong (no sign-in) through camc_submit_krathong, */
+/* which checks every field and limits how fast one device can submit.  */
+/* Everyone can see krathongs that are not hidden. Teachers can hide,   */
+/* delete or clear krathongs and open or close submissions.             */
+/* ================================================================== */
+
+create table if not exists public.camc_krathongs (
+  id         bigint generated always as identity primary key,
+  name       text not null default '' check (length(name) <= 40),
+  wish       text not null default '' check (length(wish) <= 140),
+  design     jsonb not null,
+  hidden     boolean not null default false,
+  client_ip  text,  -- for rate limiting only; never readable from the website
+  created_at timestamptz not null default now()
+);
+create index if not exists camc_krathongs_created_at_idx on public.camc_krathongs (created_at);
+create index if not exists camc_krathongs_client_ip_idx on public.camc_krathongs (client_ip, created_at);
+
+alter table public.camc_krathongs enable row level security;
+revoke all on public.camc_krathongs from anon, authenticated;
+-- Column-level grant: client_ip is deliberately left out.
+grant select (id, name, wish, design, hidden, created_at) on public.camc_krathongs to anon, authenticated;
+drop policy if exists "Anyone can see visible krathongs" on public.camc_krathongs;
+create policy "Anyone can see visible krathongs" on public.camc_krathongs
+  for select to anon, authenticated using (not hidden);
+
+create or replace function public.camc__krathong_json(k public.camc_krathongs)
+returns jsonb language sql immutable set search_path = '' as $$
+  select jsonb_build_object('id', k.id, 'name', k.name, 'wish', k.wish, 'design', k.design,
+                            'hidden', k.hidden, 'createdAt', k.created_at);
+$$;
+
+-- Returns a clean copy of a krathong design, or raises if anything is invalid.
+create or replace function public.camc__clean_krathong_design(d jsonb)
+returns jsonb language plpgsql immutable set search_path = '' as $$
+declare
+  v_candles int;
+  v_incense int;
+begin
+  if d is null or jsonb_typeof(d) <> 'object'
+     or exists (select 1 from jsonb_object_keys(d) k
+                where k not in ('base', 'petal', 'flower', 'flowerColor', 'candles', 'incense', 'deco')) then
+    raise exception 'Invalid krathong design.' using errcode = '22023';
+  end if;
+  if coalesce(d ->> 'base', '') not in ('leaf', 'bread', 'coconut', 'lotus')
+     or coalesce(d ->> 'flower', '') not in ('marigold', 'orchid', 'lotus', 'rose', 'jasmine')
+     or coalesce(d ->> 'deco', '') not in ('none', 'pearls', 'ribbon', 'stars')
+     or coalesce(d ->> 'petal', '') !~ '^#[0-9a-fA-F]{6}$'
+     or coalesce(d ->> 'flowerColor', '') !~ '^#[0-9a-fA-F]{6}$'
+     or jsonb_typeof(d -> 'candles') <> 'number'
+     or jsonb_typeof(d -> 'incense') <> 'number' then
+    raise exception 'Invalid krathong design.' using errcode = '22023';
+  end if;
+  v_candles := (d ->> 'candles')::numeric::int;
+  v_incense := (d ->> 'incense')::numeric::int;
+  if v_candles not between 1 and 3 or v_incense not between 0 and 3 then
+    raise exception 'Invalid krathong design.' using errcode = '22023';
+  end if;
+  return jsonb_build_object(
+    'base', d ->> 'base', 'petal', lower(d ->> 'petal'), 'flower', d ->> 'flower',
+    'flowerColor', lower(d ->> 'flowerColor'), 'candles', v_candles, 'incense', v_incense,
+    'deco', d ->> 'deco');
+end $$;
+
+-- Public: is the event accepting krathongs?
+create or replace function public.camc_krathong_status()
+returns jsonb language sql stable security definer set search_path = '' as $$
+  select jsonb_build_object('open', coalesce((select value from public.camc_settings where key = 'krathong_open'), 'true') <> 'false');
+$$;
+
+-- Public: float a krathong.
+create or replace function public.camc_submit_krathong(p_name text, p_wish text, p_design jsonb)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare
+  v_name text := btrim(regexp_replace(coalesce(p_name, ''), '[[:cntrl:]]', ' ', 'g'));
+  v_wish text := btrim(regexp_replace(coalesce(p_wish, ''), '[[:cntrl:]]', ' ', 'g'));
+  v_design jsonb := public.camc__clean_krathong_design(p_design);
+  v_headers json;
+  v_ip text;
+  k public.camc_krathongs;
+begin
+  if not (public.camc_krathong_status() ->> 'open')::boolean then
+    raise exception 'Krathong submissions are closed right now.' using errcode = '22023';
+  end if;
+  if length(v_name) > 40 then
+    raise exception 'Please keep your name to 40 characters.' using errcode = '22023';
+  end if;
+  if length(v_wish) > 140 then
+    raise exception 'Please keep your wish to 140 characters.' using errcode = '22023';
+  end if;
+
+  -- Rate limit by the visitor's IP address (supplied by the Supabase API gateway).
+  -- Phones on school Wi-Fi usually share one public address, so the limit is
+  -- generous: 120 krathongs per 10 minutes per network.
+  begin
+    v_headers := current_setting('request.headers', true)::json;
+  exception when others then
+    v_headers := null;
+  end;
+  v_ip := nullif(btrim(split_part(coalesce(v_headers ->> 'cf-connecting-ip', v_headers ->> 'x-forwarded-for', v_headers ->> 'x-real-ip', ''), ',', 1)), '');
+  if v_ip is not null and (select count(*) from public.camc_krathongs
+                           where client_ip = v_ip and created_at > now() - interval '10 minutes') >= 120 then
+    raise exception 'Lots of krathongs are being floated from your network. Please wait a few minutes and try again.' using errcode = '22023';
+  end if;
+  if (select count(*) from public.camc_krathongs where created_at > now() - interval '1 minute') >= 300 then
+    raise exception 'The river is very busy. Please try again in a minute.' using errcode = '22023';
+  end if;
+
+  insert into public.camc_krathongs (name, wish, design, client_ip)
+  values (v_name, v_wish, v_design, v_ip)
+  returning * into k;
+  return public.camc__krathong_json(k);
+end $$;
+
+-- Teachers: every krathong, including hidden ones (newest first).
+create or replace function public.camc_list_krathongs(p_token text)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+begin
+  perform public.camc__require(p_token, 'teacher', 'Only teachers can manage krathongs.');
+  return coalesce((select jsonb_agg(public.camc__krathong_json(k) order by k.created_at desc)
+                   from (select * from public.camc_krathongs order by created_at desc limit 2000) k), '[]'::jsonb);
+end $$;
+
+create or replace function public.camc_set_krathong_hidden(p_token text, p_id bigint, p_hidden boolean)
+returns void language plpgsql security definer set search_path = '' as $$
+begin
+  perform public.camc__require(p_token, 'teacher', 'Only teachers can manage krathongs.');
+  update public.camc_krathongs set hidden = coalesce(p_hidden, true) where id = p_id;
+end $$;
+
+create or replace function public.camc_delete_krathong(p_token text, p_id bigint)
+returns void language plpgsql security definer set search_path = '' as $$
+begin
+  perform public.camc__require(p_token, 'teacher', 'Only teachers can manage krathongs.');
+  delete from public.camc_krathongs where id = p_id;
+end $$;
+
+create or replace function public.camc_clear_krathongs(p_token text)
+returns integer language plpgsql security definer set search_path = '' as $$
+declare
+  n integer;
+begin
+  perform public.camc__require(p_token, 'teacher', 'Only teachers can manage krathongs.');
+  delete from public.camc_krathongs where true;
+  get diagnostics n = row_count;
+  return n;
+end $$;
+
+create or replace function public.camc_set_krathong_open(p_token text, p_open boolean)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+begin
+  perform public.camc__require(p_token, 'teacher', 'Only teachers can manage krathongs.');
+  insert into public.camc_settings (key, value) values ('krathong_open', case when coalesce(p_open, true) then 'true' else 'false' end)
+  on conflict (key) do update set value = excluded.value;
+  return public.camc_krathong_status();
+end $$;
+
+revoke execute on function
+  public.camc__krathong_json(public.camc_krathongs),
+  public.camc__clean_krathong_design(jsonb)
+from public, anon, authenticated;
+
+grant execute on function
+  public.camc_krathong_status(),
+  public.camc_submit_krathong(text, text, jsonb),
+  public.camc_list_krathongs(text),
+  public.camc_set_krathong_hidden(text, bigint, boolean),
+  public.camc_delete_krathong(text, bigint),
+  public.camc_clear_krathongs(text),
+  public.camc_set_krathong_open(text, boolean)
+to anon, authenticated;
+
 -- Ask the API to pick up the new functions straight away.
 notify pgrst, 'reload schema';

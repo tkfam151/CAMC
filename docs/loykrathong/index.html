@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Loy Krathong · CAMC</title>
+  <meta name="description" content="Build your own krathong and float it with a wish.">
+  <meta name="theme-color" content="#f5f5f7" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+  <link rel="icon" href="../img/icon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+
+<nav class="gnav" aria-label="Global">
+  <div class="wrap wrap-wide">
+    <a class="brand" href="../">
+      <span class="brand-mark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h10a2 2 0 0 1 2 2v7H5V5a2 2 0 0 1 2-2zM3 13h18v3.5H3zM5 16.5h2.2V21H5zM16.8 16.5H19V21h-2.2z"/></svg></span>
+      <span class="hide-sm" data-i18n="brand">CAMC Seating</span>
+    </a>
+    <div class="gnav-links">
+      <a href="../" class="hide-sm" data-i18n="navEvents">Events</a>
+      <a href="../liveloykrathong/" data-i18n="ktSeeRiver">See the River</a>
+      <button class="lang-toggle" type="button" aria-label="Language">ไทย</button>
+    </div>
+  </div>
+</nav>
+
+<main class="kt-page">
+  <header class="hero kt-hero">
+    <p class="eyebrow kt-eyebrow" data-i18n="ktEyebrow">Loy Krathong</p>
+    <h1 class="headline" data-i18n="ktTitle">Build your krathong.</h1>
+    <p class="subhead" data-i18n="ktSub">Choose its base, petals and flowers, light the candles, then float it with a wish.</p>
+  </header>
+
+  <div class="wrap">
+    <p class="kt-closed" id="kt-closed" role="status" hidden></p>
+
+    <div class="kt-builder" id="kt-builder">
+      <section class="kt-stage" aria-label="Preview">
+        <div class="kt-water" id="kt-water">
+          <div class="kt-moon" aria-hidden="true"></div>
+          <div class="kt-preview" id="kt-preview"></div>
+          <div class="kt-ripple" aria-hidden="true"></div>
+        </div>
+        <div class="kt-stage-actions">
+          <button class="btn btn-secondary" type="button" id="kt-random">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>
+            <span data-i18n="ktSurprise">Surprise Me</span>
+          </button>
+        </div>
+      </section>
+
+      <div class="kt-controls">
+        <section class="panel">
+          <h3 data-i18n="ktBase">Base</h3>
+          <div class="kt-options" id="opt-base" role="radiogroup"></div>
+        </section>
+
+        <section class="panel">
+          <h3 data-i18n="ktPetals">Leaf petals</h3>
+          <div class="swatches kt-swatches" id="opt-petal" role="radiogroup"></div>
+        </section>
+
+        <section class="panel">
+          <h3 data-i18n="ktFlowers">Flowers</h3>
+          <div class="kt-options kt-options-5" id="opt-flower" role="radiogroup"></div>
+          <h4 class="kt-subhead" data-i18n="ktFlowerColor">Flower colour</h4>
+          <div class="swatches kt-swatches" id="opt-flowerColor" role="radiogroup"></div>
+        </section>
+
+        <section class="panel kt-row-panel">
+          <div>
+            <h3 data-i18n="ktCandles">Candles</h3>
+            <div class="segmented" id="opt-candles" role="radiogroup"></div>
+          </div>
+          <div>
+            <h3 data-i18n="ktIncense">Incense sticks</h3>
+            <div class="segmented" id="opt-incense" role="radiogroup"></div>
+          </div>
+          <div>
+            <h3 data-i18n="ktDeco">Decoration</h3>
+            <div class="segmented" id="opt-deco" role="radiogroup"></div>
+          </div>
+        </section>
+
+        <form class="panel kt-wish" id="kt-form" novalidate>
+          <div class="field">
+            <label for="kt-name" data-i18n="ktYourName">Your name (optional)</label>
+            <input class="input" id="kt-name" maxlength="40" autocomplete="off" data-i18n-placeholder="ktNamePh">
+          </div>
+          <div class="field">
+            <label for="kt-wish" data-i18n="ktWish">Your wish</label>
+            <textarea class="input kt-textarea" id="kt-wish" maxlength="140" rows="3" data-i18n-placeholder="ktWishPh"></textarea>
+            <span class="kt-counter" id="kt-counter">0 / 140</span>
+          </div>
+          <div class="form-error" id="kt-error" role="alert"></div>
+          <button class="btn btn-lg btn-block" type="submit" id="kt-submit" data-i18n="ktFloat">Float My Krathong</button>
+        </form>
+      </div>
+    </div>
+
+    <section class="kt-done" id="kt-done" hidden>
+      <div class="kt-done-art" id="kt-done-art"></div>
+      <h2 class="section-title" data-i18n="ktDoneTitle">Your krathong is on the river.</h2>
+      <p class="section-sub" data-i18n="ktDoneSub">Watch for it on the big screen.</p>
+      <div class="kt-done-actions">
+        <a class="btn btn-lg" href="../liveloykrathong/" data-i18n="ktSeeRiver">See the River</a>
+        <button class="btn btn-lg btn-secondary" type="button" id="kt-again" data-i18n="ktAnother">Make Another</button>
+      </div>
+    </section>
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="wrap wrap-wide">
+    <span>CAMC · Loy Krathong</span>
+    <span>Developed by Panthira Thamsanit</span>
+  </div>
+</footer>
+
+<script src="../vendor/supabase-2.119.0.js"></script>
+<script src="../config.js"></script>
+<script src="../js/common.js"></script>
+<script src="../js/data.js"></script>
+<script src="../js/krathong.js"></script>
+<script src="../js/loykrathong.js"></script>
+</body>
+</html>

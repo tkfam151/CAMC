@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Live River · Loy Krathong</title>
+  <meta name="theme-color" content="#050b1f">
+  <link rel="icon" href="../img/icon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/live.css">
+</head>
+<body>
+  <div class="scene" id="scene">
+    <canvas class="sky" id="sky" aria-hidden="true"></canvas>
+    <div class="moon" id="moon" aria-hidden="true"></div>
+
+    <svg class="skyline" viewBox="0 0 1600 220" preserveAspectRatio="none" aria-hidden="true">
+      <path d="M0 220 L0 170 Q60 150 120 168 Q180 140 250 160 L300 160 L300 120 L312 120 L312 96 L324 70 L336 96 L336 120 L348 120 L348 160 Q420 150 470 164 Q540 128 610 158 L680 160 L700 132 L716 132 L716 100 L728 100 L734 60 L742 30 L750 60 L756 100 L768 100 L768 132 L784 132 L804 160 L840 158 Q900 132 960 160 L1010 160 L1022 138 L1040 138 L1046 112 L1052 138 L1070 138 L1082 160 Q1160 144 1220 166 Q1290 140 1360 162 Q1430 150 1500 168 Q1560 158 1600 166 L1600 220 Z" fill="#050a1c"/>
+      <path d="M0 220 L0 190 Q120 180 240 192 Q400 176 560 190 Q720 178 880 192 Q1040 180 1200 190 Q1360 178 1600 190 L1600 220 Z" fill="#071027"/>
+    </svg>
+
+    <div class="river" id="river" aria-hidden="true">
+      <svg class="waves" viewBox="0 0 1600 400" preserveAspectRatio="none">
+        <g class="wave w1"><path d="M0 60 Q100 50 200 60 T400 60 T600 60 T800 60 T1000 60 T1200 60 T1400 60 T1600 60 T1800 60 T2000 60 T2200 60 T2400 60 T2600 60 T2800 60 T3000 60 T3200 60"/></g>
+        <g class="wave w2"><path d="M0 160 Q120 148 240 160 T480 160 T720 160 T960 160 T1200 160 T1440 160 T1680 160 T1920 160 T2160 160 T2400 160 T2640 160 T2880 160 T3120 160 T3360 160"/></g>
+        <g class="wave w3"><path d="M0 290 Q150 274 300 290 T600 290 T900 290 T1200 290 T1500 290 T1800 290 T2100 290 T2400 290 T2700 290 T3000 290 T3300 290"/></g>
+      </svg>
+    </div>
+
+    <div class="krathongs" id="krathongs" aria-live="off"></div>
+
+    <header class="title">
+      <h1><span class="th">ลอยกระทง</span> <span class="en">Loy Krathong</span></h1>
+      <p id="count" class="count"></p>
+    </header>
+
+    <div class="toasts" id="toasts" aria-live="polite"></div>
+
+    <aside class="qr-card" id="qr-card">
+      <div class="qr" id="qr"></div>
+      <div class="qr-text">
+        <strong data-i18n="ktScan">Scan to float your krathong</strong>
+        <span id="qr-url"></span>
+      </div>
+    </aside>
+
+    <div class="empty" id="empty" hidden>
+      <p class="empty-big" data-i18n="ktEmptyLive">Be the first to float a krathong</p>
+    </div>
+
+    <div class="controls" id="controls">
+      <button class="ctl lang-toggle" type="button" aria-label="Language">ไทย</button>
+      <button class="ctl" type="button" id="btn-fullscreen" data-i18n="ktFullscreen">Full Screen</button>
+    </div>
+  </div>
+
+  <script src="../vendor/supabase-2.119.0.js"></script>
+  <script src="../vendor/qrcode-generator-1.4.4.js"></script>
+  <script src="../config.js"></script>
+  <script src="../js/common.js"></script>
+  <script src="../js/data.js"></script>
+  <script src="../js/krathong.js"></script>
+  <script src="../js/live.js"></script>
+</body>
+</html>

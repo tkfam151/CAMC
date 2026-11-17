@@ -100,6 +100,7 @@
         <nav class="segmented tabs" aria-label="Sections">
           <a href="#/" aria-current="page" data-i18n="myEvents">Seating Charts</a>
           <a href="#/groups" data-i18n="navGroups">Classes &amp; VIP</a>
+          <a href="#/krathongs" data-i18n="navKrathong">Loy Krathong</a>
         </nav>
       </div>
       <div class="search" style="width:280px;max-width:100%">
@@ -122,6 +123,7 @@
         <nav class="segmented tabs" aria-label="Sections">
           <a href="#/" data-i18n="myEvents">Seating Charts</a>
           <a href="#/groups" aria-current="page" data-i18n="navGroups">Classes &amp; VIP</a>
+          <a href="#/krathongs" data-i18n="navKrathong">Loy Krathong</a>
         </nav>
       </div>
     </header>
@@ -154,6 +156,34 @@
         <p class="muted small" style="margin:14px 0 0" data-i18n="vipHint">To seat a VIP guest, open a seating chart, click a seat and choose a VIP group.</p>
       </section>
     </div>
+  </div>
+</main>
+
+<!-- ========== Teacher: Loy Krathong moderation ========== -->
+<main id="view-krathongs" hidden>
+  <div class="wrap wrap-wide">
+    <header class="page-head">
+      <div class="grow">
+        <p class="eyebrow" id="greeting-kt"></p>
+        <h1 class="section-title" data-i18n="navKrathong">Loy Krathong</h1>
+        <p class="section-sub" data-i18n="ktManageSub">Hide or remove krathongs. The live river updates within about 30 seconds.</p>
+        <nav class="segmented tabs" aria-label="Sections">
+          <a href="#/" data-i18n="myEvents">Seating Charts</a>
+          <a href="#/groups" data-i18n="navGroups">Classes &amp; VIP</a>
+          <a href="#/krathongs" aria-current="page" data-i18n="navKrathong">Loy Krathong</a>
+        </nav>
+      </div>
+    </header>
+    <div class="kt-admin-bar">
+      <label class="switch"><input type="checkbox" id="kt-open" role="switch"> <span data-i18n="ktAccepting">Accepting krathongs</span></label>
+      <span class="muted small" id="kt-total"></span>
+      <span class="spacer"></span>
+      <a class="btn btn-secondary btn-sm" href="../loykrathong/" target="_blank" rel="noopener" data-i18n="ktOpenBuilder">Open Builder</a>
+      <a class="btn btn-secondary btn-sm" href="../liveloykrathong/" target="_blank" rel="noopener" data-i18n="ktOpenLive">Open Live River</a>
+      <button class="btn btn-danger btn-sm" type="button" id="kt-clear" data-i18n="ktClearAll">Clear All Krathongs</button>
+    </div>
+    <div class="kt-grid" id="kt-grid"></div>
+    <p class="empty" id="kt-empty" hidden data-i18n="ktEmpty">No krathongs yet.</p>
   </div>
 </main>
 
@@ -401,6 +431,7 @@
 <script src="../js/common.js"></script>
 <script src="../js/data.js"></script>
 <script src="../js/hall.js"></script>
+<script src="../js/krathong.js"></script>
 <script src="../js/teacher.js"></script>
 </body>
 </html>

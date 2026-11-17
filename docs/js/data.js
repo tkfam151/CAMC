@@ -183,7 +183,43 @@
 
   const deleteEvent = (id) => rpc('camc_delete_event', { p_token: getToken(), p_id: id });
 
+  /* --- Loy Krathong ------------------------------------------------------ */
+
+  const KRATHONG_COLUMNS = 'id, name, wish, design, created_at';
+  const toKrathong = (r) => ({ id: Number(r.id), name: r.name, wish: r.wish, design: r.design, createdAt: r.created_at || r.createdAt, hidden: !!r.hidden });
+
+  /** Visible krathongs, oldest first. `since` (ISO time) returns only newer ones. */
+  async function listKrathongs({ since, limit = 500 } = {}) {
+    const rows = await run(() => {
+      let q = sb.from('camc_krathongs').select(KRATHONG_COLUMNS);
+      if (since) q = q.gt('created_at', since).order('created_at', { ascending: true });
+      else q = q.order('created_at', { ascending: false });
+      return q.limit(limit);
+    });
+    const list = rows.map(toKrathong);
+    return since ? list : list.reverse();
+  }
+
+  /** IDs of every visible krathong (used to drop ones a teacher has hidden). */
+  async function krathongIds() {
+    const rows = await run(() => sb.from('camc_krathongs').select('id').order('created_at', { ascending: false }).limit(5000));
+    return new Set(rows.map((r) => Number(r.id)));
+  }
+
+  const krathongStatus = () => rpc('camc_krathong_status', {});
+
+  const submitKrathong = async ({ name, wish, design }) =>
+    toKrathong(await rpc('camc_submit_krathong', { p_name: name || '', p_wish: wish || '', p_design: design }));
+
+  const listAllKrathongs = async () => (await rpc('camc_list_krathongs', { p_token: getToken() })).map(toKrathong);
+  const setKrathongHidden = (id, hidden) => rpc('camc_set_krathong_hidden', { p_token: getToken(), p_id: id, p_hidden: hidden });
+  const deleteKrathong = (id) => rpc('camc_delete_krathong', { p_token: getToken(), p_id: id });
+  const clearKrathongs = () => rpc('camc_clear_krathongs', { p_token: getToken() });
+  const setKrathongOpen = (open) => rpc('camc_set_krathong_open', { p_token: getToken(), p_open: open });
+
   window.DB = {
+    listKrathongs, krathongIds, krathongStatus, submitKrathong,
+    listAllKrathongs, setKrathongHidden, deleteKrathong, clearKrathongs, setKrathongOpen,
     configured,
     listEvents, getEvent, listGroups,
     login, logout, me, changePassword,
