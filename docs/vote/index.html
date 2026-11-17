@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Live Vote · CAMC</title>
+  <meta name="theme-color" content="#f5f5f7" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+  <link rel="icon" href="../img/icon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="../css/studio.css">
+</head>
+<body>
+<nav class="gnav" aria-label="Global">
+  <div class="wrap">
+    <span class="brand">
+      <span class="brand-mark live-mark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18h3V9H4zM10.5 18h3V5h-3zM17 18h3v-6h-3z"/></svg></span>
+      <span>CAMC Live</span>
+    </span>
+    <div class="gnav-links">
+      <button class="lang-toggle" type="button" aria-label="Language">ไทย</button>
+    </div>
+  </div>
+</nav>
+
+<main class="wrap narrow">
+  <section id="join" class="join" hidden>
+    <h1 class="section-title" data-i18n="join">Join</h1>
+    <p class="section-sub" data-i18n="enterCode">Enter the code shown on the screen</p>
+    <form id="join-form" class="join-form" novalidate>
+      <input class="input code-input" id="code" maxlength="6" autocomplete="off" autocapitalize="characters" spellcheck="false" inputmode="text" data-i18n-placeholder="codePh" data-i18n-aria="codePh">
+      <button class="btn btn-lg" type="submit" data-i18n="join">Join</button>
+    </form>
+    <p class="form-error" id="join-error" role="alert"></p>
+  </section>
+
+  <section id="room" hidden>
+    <header class="room-head">
+      <p class="eyebrow"><span class="live-dot"></span><span data-i18n="liveEyebrow">Live</span> · <span id="room-code"></span>
+        <button class="link-btn" type="button" id="change-code" data-i18n="changeCode">Change code</button></p>
+      <h1 class="section-title" id="room-title"></h1>
+    </header>
+
+    <article class="card card-pad poll-card" id="poll-card">
+      <div id="poll-body"></div>
+    </article>
+
+    <article class="card card-pad" id="qa-card" hidden>
+      <h2 class="card-title" data-i18n="askTitle">Ask a question</h2>
+      <form id="ask-form" class="stack-form" novalidate>
+        <input class="input" id="ask-name" maxlength="40" autocomplete="off" data-i18n-placeholder="yourName">
+        <textarea class="input textarea" id="ask-body" maxlength="200" rows="3" data-i18n-placeholder="askPh"></textarea>
+        <div class="form-row-end">
+          <span class="note" id="ask-note" role="status"></span>
+          <button class="btn" type="submit" id="ask-send" data-i18n="askSend">Send Question</button>
+        </div>
+      </form>
+      <p class="muted small" id="qa-closed" hidden data-i18n="qaClosed">Questions are closed right now.</p>
+      <h3 class="list-title" data-i18n="questionsTitle">Questions</h3>
+      <ul class="q-list" id="q-list"></ul>
+    </article>
+  </section>
+
+  <div id="loading" class="loading"><div class="spinner"></div></div>
+</main>
+
+<script src="../vendor/supabase-2.119.0.js"></script>
+<script src="../config.js"></script>
+<script src="../js/common.js"></script>
+<script src="../js/studio-strings.js"></script>
+<script src="../js/studio-api.js"></script>
+<script src="../js/vote.js"></script>
+</body>
+</html>

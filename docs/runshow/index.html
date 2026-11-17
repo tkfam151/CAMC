@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Run of Show · Now / Next</title>
+  <meta name="theme-color" content="#000000">
+  <link rel="icon" href="../img/icon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/screens.css">
+</head>
+<body>
+  <div class="screen run-screen" id="screen">
+    <header class="topbar">
+      <div>
+        <h1 id="title"></h1>
+        <p class="sub" id="sub"></p>
+      </div>
+      <div class="clock" id="clock"></div>
+    </header>
+    <main class="run-grid" id="grid">
+      <section class="panel now">
+        <div class="k" data-i18n="runNow">Now</div>
+        <div class="now-title" id="now-title"></div>
+        <div class="now-presenter" id="now-presenter"></div>
+        <div class="timer" id="timer">
+          <div class="timer-row">
+            <span class="timer-big" id="elapsed">0:00</span>
+            <span class="timer-left" id="left"></span>
+          </div>
+          <div class="timer-track"><i id="track"></i></div>
+        </div>
+      </section>
+      <div class="side-col">
+        <section class="panel next">
+          <div class="k" data-i18n="runNext">Next</div>
+          <div class="next-title" id="next-title"></div>
+          <div class="next-meta" id="next-meta"></div>
+        </section>
+        <section class="panel later">
+          <div class="k" data-i18n="runLater">Later</div>
+          <ul class="later-list" id="later"></ul>
+        </section>
+      </div>
+    </main>
+  </div>
+  <div class="controls">
+    <button class="ctl lang-toggle" type="button" aria-label="Language">ไทย</button>
+    <button class="ctl" type="button" id="btn-fullscreen" data-i18n="ktFullscreen">Full Screen</button>
+  </div>
+
+  <script src="../vendor/supabase-2.119.0.js"></script>
+  <script src="../config.js"></script>
+  <script src="../js/common.js"></script>
+  <script src="../js/studio-strings.js"></script>
+  <script src="../js/studio-api.js"></script>
+  <script src="../js/screen.js"></script>
+  <script src="../js/runshow.js"></script>
+</body>
+</html>

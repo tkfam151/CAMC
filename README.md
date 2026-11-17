@@ -60,6 +60,29 @@ Teachers manage these at `/teacher/` → **Classes & VIP** (or with **New Class 
 
 If you set up the database before Loy Krathong was added, run `supabase/schema.sql` again in the SQL Editor to add it. Nothing existing is changed.
 
+## Studio: voting, message walls, awards and run of show
+
+These live in their own folders, separate from the main seating site. Teachers sign in at `…/studio/` with their usual CAMC Seating account.
+
+| Folder | Who | What |
+| --- | --- | --- |
+| `/studio/` | Teachers | Create and run everything below, approve questions and messages, and move the big screens on |
+| `/vote/` | Students (iPad, Mac, Windows) | Enter the 6-character code, vote, ask questions and upvote them |
+| `/livevote/` | Big screen | Join code and QR, the question with a live vote count, results bars, or the top questions |
+| `/wall/` | Students | Post a message to a themed wall (Wai Khru, Songkran, Graduation, New Year, Christmas or plain) |
+| `/livewall/` | Big screen | Approved messages as sticky notes. New ones jump to the front, and pages turn when it's full |
+| `/awards/` | Big screen | One winner at a time with a reveal. Upcoming winners are never sent to the screen, so they stay secret |
+| `/runshow/` | Backstage screen | Now / Next / Later with a timer against each item's planned minutes |
+
+Tips:
+
+- In the studio, **Open Big Screen** opens the right screen for the projector. Press **Full Screen** there; the buttons and cursor hide after a few seconds.
+- Questions and messages wait for a teacher to approve them unless you turn that off.
+- Link an award show to a seating chart and give each award a seat (e.g. `B4`). The studio then shows where the next winner is sitting, so you can call them up in time.
+- Each device can vote once per question (it can change its vote until voting closes).
+
+If your database was set up before the studio was added, run `supabase/schema.sql` again in the SQL Editor. Nothing existing is changed.
+
 ## How it is secured
 
 GitHub Pages only serves static files, so the browser talks to Supabase directly with the public anon key. Everything that matters is enforced inside the database by `supabase/schema.sql`:

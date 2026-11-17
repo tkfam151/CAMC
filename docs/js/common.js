@@ -428,6 +428,11 @@
 
   function onLangChange(fn) { listeners.push(fn); }
 
+  /** Let other pages add their own text: addStrings({ en: {...}, th: {...} }). */
+  function addStrings(map) {
+    Object.keys(map || {}).forEach((l) => { STRINGS[l] = Object.assign(STRINGS[l] || {}, map[l]); });
+  }
+
   document.addEventListener('click', (e) => {
     if (e.target.closest('.lang-toggle')) setLang(lang === 'th' ? 'en' : 'th');
   });
@@ -464,5 +469,5 @@
     return (...a) => { clearTimeout(id); id = setTimeout(() => fn(...a), ms); };
   }
 
-  window.CAMC = { t, applyI18n, setLang, onLangChange, getLang: () => lang, formatDate, toast, debounce };
+  window.CAMC = { t, applyI18n, setLang, onLangChange, addStrings, getLang: () => lang, formatDate, toast, debounce };
 })();

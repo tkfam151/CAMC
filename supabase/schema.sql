@@ -660,5 +660,738 @@ grant execute on function
   public.camc_set_krathong_open(text, boolean)
 to anon, authenticated;
 
+/* ================================================================== */
+/* Studio: live voting & Q&A, message walls, awards, run of show       */
+/*                                                                     */
+/* Everything here is reached only through functions. Teachers manage  */
+/* it from /studio/ (camc_studio_*). Students and big screens use the  */
+/* public functions, which only return what may be shown: approved     */
+/* messages and questions, and awards up to the one being presented.   */
+/* ================================================================== */
+
+create table if not exists public.camc_rooms (
+  code         text primary key,
+  title        text not null,
+  mode         text not null default 'idle' check (mode in ('idle', 'poll', 'results', 'qa')),
+  active_poll  bigint,
+  qa_open      boolean not null default true,
+  qa_moderated boolean not null default true,
+  created_by   text,
+  created_at   timestamptz not null default now()
+);
+
+create table if not exists public.camc_polls (
+  id         bigint generated always as identity primary key,
+  room_code  text not null references public.camc_rooms (code) on delete cascade,
+  question   text not null,
+  options    jsonb not null,
+  state      text not null default 'draft' check (state in ('draft', 'open', 'closed')),
+  sort       integer not null default 0,
+  created_at timestamptz not null default now()
+);
+create index if not exists camc_polls_room_idx on public.camc_polls (room_code);
+
+create table if not exists public.camc_votes (
+  poll_id      bigint not null references public.camc_polls (id) on delete cascade,
+  voter        text not null,
+  option_index integer not null,
+  client_ip    text,
+  created_at   timestamptz not null default now(),
+  primary key (poll_id, voter)
+);
+create index if not exists camc_votes_ip_idx on public.camc_votes (client_ip, created_at);
+
+create table if not exists public.camc_questions (
+  id         bigint generated always as identity primary key,
+  room_code  text not null references public.camc_rooms (code) on delete cascade,
+  name       text not null default '',
+  body       text not null,
+  status     text not null default 'pending' check (status in ('pending', 'approved', 'hidden', 'answered')),
+  upvotes    integer not null default 0,
+  voter      text,
+  client_ip  text,
+  created_at timestamptz not null default now()
+);
+create index if not exists camc_questions_room_idx on public.camc_questions (room_code, status);
+
+create table if not exists public.camc_question_votes (
+  question_id bigint not null references public.camc_questions (id) on delete cascade,
+  voter       text not null,
+  primary key (question_id, voter)
+);
+
+create table if not exists public.camc_walls (
+  code       text primary key,
+  title      text not null,
+  theme      text not null default 'general' check (theme in ('general', 'waikhru', 'songkran', 'graduation', 'newyear', 'christmas')),
+  open       boolean not null default true,
+  moderated  boolean not null default true,
+  created_by text,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.camc_wall_posts (
+  id         bigint generated always as identity primary key,
+  wall_code  text not null references public.camc_walls (code) on delete cascade,
+  name       text not null default '',
+  message    text not null,
+  color      text not null default '#ffe08a' check (color ~ '^#[0-9a-f]{6}$'),
+  status     text not null default 'pending' check (status in ('pending', 'approved', 'hidden')),
+  voter      text,
+  client_ip  text,
+  created_at timestamptz not null default now()
+);
+create index if not exists camc_wall_posts_wall_idx on public.camc_wall_posts (wall_code, status, id);
+
+create table if not exists public.camc_award_shows (
+  id            text primary key default encode(extensions.gen_random_bytes(6), 'hex'),
+  title         text not null,
+  event_id      text references public.camc_events (id) on delete set null,
+  current_index integer not null default -1,
+  created_by    text,
+  created_at    timestamptz not null default now()
+);
+
+create table if not exists public.camc_awards (
+  id        bigint generated always as identity primary key,
+  show_id   text not null references public.camc_award_shows (id) on delete cascade,
+  sort      integer not null default 0,
+  category  text not null default '',
+  recipient text not null default '',
+  detail    text not null default '',
+  seat      text not null default '',
+  photo     text
+);
+create index if not exists camc_awards_show_idx on public.camc_awards (show_id, sort);
+
+create table if not exists public.camc_run_shows (
+  id                 text primary key default encode(extensions.gen_random_bytes(6), 'hex'),
+  title              text not null,
+  show_date          text not null default '',
+  current_index      integer not null default -1,
+  current_started_at timestamptz,
+  created_by         text,
+  created_at         timestamptz not null default now()
+);
+
+create table if not exists public.camc_run_items (
+  id           bigint generated always as identity primary key,
+  show_id      text not null references public.camc_run_shows (id) on delete cascade,
+  sort         integer not null default 0,
+  title        text not null default '',
+  presenter    text not null default '',
+  duration_min integer not null default 5 check (duration_min between 0 and 600),
+  notes        text not null default ''
+);
+create index if not exists camc_run_items_show_idx on public.camc_run_items (show_id, sort);
+
+do $$
+declare t text;
+begin
+  foreach t in array array['camc_rooms', 'camc_polls', 'camc_votes', 'camc_questions', 'camc_question_votes',
+                           'camc_walls', 'camc_wall_posts', 'camc_award_shows', 'camc_awards', 'camc_run_shows', 'camc_run_items'] loop
+    execute format('alter table public.%I enable row level security', t);
+    execute format('revoke all on public.%I from anon, authenticated', t);
+  end loop;
+end $$;
+
+/* --- helpers ---------------------------------------------------------- */
+
+-- Visitor's IP address from the Supabase API gateway (null if unknown).
+create or replace function public.camc__client_ip()
+returns text language plpgsql stable set search_path = '' as $$
+declare h json;
+begin
+  begin
+    h := current_setting('request.headers', true)::json;
+  exception when others then
+    return null;
+  end;
+  return nullif(btrim(split_part(coalesce(h ->> 'cf-connecting-ip', h ->> 'x-forwarded-for', h ->> 'x-real-ip', ''), ',', 1)), '');
+end $$;
+
+-- Trimmed text without control characters; raises if too long or required and empty.
+create or replace function public.camc__text(p text, p_max integer, p_label text, p_required boolean default false)
+returns text language plpgsql immutable set search_path = '' as $$
+declare v text := btrim(regexp_replace(coalesce(p, ''), '[[:cntrl:]]', ' ', 'g'));
+begin
+  if p_required and v = '' then
+    raise exception '% is required.', p_label using errcode = '22023';
+  end if;
+  if length(v) > p_max then
+    raise exception '% must be % characters or fewer.', p_label, p_max using errcode = '22023';
+  end if;
+  return v;
+end $$;
+
+-- Short join code that is easy to read aloud and type (no 0/O or 1/I).
+create or replace function public.camc__new_code()
+returns text language plpgsql volatile set search_path = '' as $$
+declare
+  alphabet constant text := 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  b bytea;
+  v text;
+begin
+  loop
+    b := extensions.gen_random_bytes(6);
+    v := '';
+    for i in 0..5 loop
+      v := v || substr(alphabet, 1 + (get_byte(b, i) % 32), 1);
+    end loop;
+    exit when not exists (select 1 from public.camc_rooms where code = v)
+          and not exists (select 1 from public.camc_walls where code = v);
+  end loop;
+  return v;
+end $$;
+
+create or replace function public.camc__check_voter(p_voter text)
+returns void language plpgsql immutable set search_path = '' as $$
+begin
+  if coalesce(p_voter, '') !~ '^[A-Za-z0-9-]{8,64}$' then
+    raise exception 'Please reload the page and try again.' using errcode = '22023';
+  end if;
+end $$;
+
+create or replace function public.camc__poll_json(p public.camc_polls)
+returns jsonb language sql stable set search_path = '' as $$
+  select jsonb_build_object(
+    'id', p.id, 'question', p.question, 'options', p.options, 'state', p.state, 'sort', p.sort,
+    'counts', (select coalesce(jsonb_agg(coalesce(c.n, 0) order by o.i), '[]'::jsonb)
+               from generate_series(0, jsonb_array_length(p.options) - 1) o(i)
+               left join (select option_index, count(*) n from public.camc_votes where poll_id = p.id group by option_index) c
+                 on c.option_index = o.i),
+    'total', (select count(*) from public.camc_votes where poll_id = p.id));
+$$;
+
+create or replace function public.camc__room_json(r public.camc_rooms)
+returns jsonb language sql stable set search_path = '' as $$
+  select jsonb_build_object('code', r.code, 'title', r.title, 'mode', r.mode, 'activePoll', r.active_poll,
+                            'qaOpen', r.qa_open, 'qaModerated', r.qa_moderated, 'createdAt', r.created_at);
+$$;
+
+create or replace function public.camc__question_json(q public.camc_questions)
+returns jsonb language sql immutable set search_path = '' as $$
+  select jsonb_build_object('id', q.id, 'name', q.name, 'body', q.body, 'status', q.status,
+                            'upvotes', q.upvotes, 'createdAt', q.created_at);
+$$;
+
+create or replace function public.camc__wall_json(w public.camc_walls)
+returns jsonb language sql immutable set search_path = '' as $$
+  select jsonb_build_object('code', w.code, 'title', w.title, 'theme', w.theme, 'open', w.open,
+                            'moderated', w.moderated, 'createdAt', w.created_at);
+$$;
+
+create or replace function public.camc__post_json(p public.camc_wall_posts)
+returns jsonb language sql immutable set search_path = '' as $$
+  select jsonb_build_object('id', p.id, 'name', p.name, 'message', p.message, 'color', p.color,
+                            'status', p.status, 'createdAt', p.created_at);
+$$;
+
+create or replace function public.camc__award_json(a public.camc_awards, p_private boolean)
+returns jsonb language sql immutable set search_path = '' as $$
+  select jsonb_build_object('id', a.id, 'sort', a.sort, 'category', a.category, 'recipient', a.recipient,
+                            'detail', a.detail, 'photo', a.photo)
+         || case when p_private then jsonb_build_object('seat', a.seat) else '{}'::jsonb end;
+$$;
+
+create or replace function public.camc__run_item_json(i public.camc_run_items, p_private boolean)
+returns jsonb language sql immutable set search_path = '' as $$
+  select jsonb_build_object('id', i.id, 'sort', i.sort, 'title', i.title, 'presenter', i.presenter,
+                            'durationMin', i.duration_min)
+         || case when p_private then jsonb_build_object('notes', i.notes) else '{}'::jsonb end;
+$$;
+
+/* --- public: voting & Q&A ------------------------------------------- */
+
+-- What a student or the big screen needs for a room (null if the code is wrong).
+create or replace function public.camc_room_state(p_code text)
+returns jsonb language plpgsql stable security definer set search_path = '' as $$
+declare
+  r public.camc_rooms;
+  p public.camc_polls;
+begin
+  select * into r from public.camc_rooms where code = upper(btrim(coalesce(p_code, '')));
+  if not found then
+    return null;
+  end if;
+  select * into p from public.camc_polls where id = r.active_poll and room_code = r.code;
+  return jsonb_build_object('room', public.camc__room_json(r),
+                            'poll', case when p.id is null or p.state = 'draft' then null else public.camc__poll_json(p) end);
+end $$;
+
+create or replace function public.camc_vote(p_code text, p_poll_id bigint, p_voter text, p_option integer)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare
+  r public.camc_rooms;
+  p public.camc_polls;
+  v_ip text := public.camc__client_ip();
+begin
+  perform public.camc__check_voter(p_voter);
+  select * into r from public.camc_rooms where code = upper(btrim(coalesce(p_code, '')));
+  select * into p from public.camc_polls where id = p_poll_id and room_code = r.code;
+  if r.code is null or p.id is null or r.active_poll is distinct from p.id or p.state <> 'open' then
+    raise exception 'Voting has closed for this question.' using errcode = '22023';
+  end if;
+  if p_option is null or p_option < 0 or p_option >= jsonb_array_length(p.options) then
+    raise exception 'Please choose an answer.' using errcode = '22023';
+  end if;
+  if v_ip is not null and (select count(*) from public.camc_votes
+                           where client_ip = v_ip and created_at > now() - interval '1 minute') >= 1500 then
+    raise exception 'Lots of votes are coming from your network. Please try again in a moment.' using errcode = '22023';
+  end if;
+  insert into public.camc_votes (poll_id, voter, option_index, client_ip)
+  values (p.id, p_voter, p_option, v_ip)
+  on conflict (poll_id, voter) do update set option_index = excluded.option_index, created_at = now();
+  return jsonb_build_object('ok', true, 'option', p_option);
+end $$;
+
+create or replace function public.camc_ask(p_code text, p_name text, p_body text, p_voter text)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare
+  r public.camc_rooms;
+  v_name text := public.camc__text(p_name, 40, 'Name');
+  v_body text := public.camc__text(p_body, 200, 'Question', true);
+  v_ip text := public.camc__client_ip();
+  q public.camc_questions;
+begin
+  perform public.camc__check_voter(p_voter);
+  select * into r from public.camc_rooms where code = upper(btrim(coalesce(p_code, '')));
+  if r.code is null or not r.qa_open then
+    raise exception 'Questions are closed right now.' using errcode = '22023';
+  end if;
+  if (select count(*) from public.camc_questions where voter = p_voter and created_at > now() - interval '5 minutes') >= 5 then
+    raise exception 'You''ve sent several questions. Please wait a few minutes.' using errcode = '22023';
+  end if;
+  if v_ip is not null and (select count(*) from public.camc_questions where client_ip = v_ip and created_at > now() - interval '10 minutes') >= 300 then
+    raise exception 'Lots of questions are coming from your network. Please try again soon.' using errcode = '22023';
+  end if;
+  insert into public.camc_questions (room_code, name, body, status, voter, client_ip)
+  values (r.code, v_name, v_body, case when r.qa_moderated then 'pending' else 'approved' end, p_voter, v_ip)
+  returning * into q;
+  return jsonb_build_object('status', q.status);
+end $$;
+
+-- Approved questions (most upvoted first), then answered ones.
+create or replace function public.camc_room_questions(p_code text)
+returns jsonb language sql stable security definer set search_path = '' as $$
+  select coalesce(jsonb_agg(public.camc__question_json(q)
+                            order by (q.status = 'answered'), q.upvotes desc, q.created_at), '[]'::jsonb)
+  from (select * from public.camc_questions
+        where room_code = upper(btrim(coalesce(p_code, ''))) and status in ('approved', 'answered')
+        order by (status = 'answered'), upvotes desc, created_at limit 100) q;
+$$;
+
+create or replace function public.camc_upvote(p_code text, p_question_id bigint, p_voter text)
+returns integer language plpgsql security definer set search_path = '' as $$
+declare n integer;
+begin
+  perform public.camc__check_voter(p_voter);
+  if not exists (select 1 from public.camc_questions
+                 where id = p_question_id and room_code = upper(btrim(coalesce(p_code, ''))) and status = 'approved') then
+    raise exception 'This question can''t be upvoted.' using errcode = '22023';
+  end if;
+  insert into public.camc_question_votes (question_id, voter) values (p_question_id, p_voter) on conflict do nothing;
+  get diagnostics n = row_count;
+  if n > 0 then
+    update public.camc_questions set upvotes = upvotes + 1 where id = p_question_id returning upvotes into n;
+  else
+    select upvotes into n from public.camc_questions where id = p_question_id;
+  end if;
+  return n;
+end $$;
+
+/* --- public: message walls ------------------------------------------ */
+
+-- Wall details and approved messages newer than p_since (0 = all).
+create or replace function public.camc_wall_state(p_code text, p_since bigint default 0)
+returns jsonb language plpgsql stable security definer set search_path = '' as $$
+declare w public.camc_walls;
+begin
+  select * into w from public.camc_walls where code = upper(btrim(coalesce(p_code, '')));
+  if not found then
+    return null;
+  end if;
+  return jsonb_build_object(
+    'wall', public.camc__wall_json(w),
+    'posts', coalesce((select jsonb_agg(public.camc__post_json(p) order by p.id)
+                       from (select * from public.camc_wall_posts
+                             where wall_code = w.code and status = 'approved' and id > coalesce(p_since, 0)
+                             order by id desc limit 600) p), '[]'::jsonb));
+end $$;
+
+create or replace function public.camc_wall_post(p_code text, p_name text, p_message text, p_color text, p_voter text)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare
+  w public.camc_walls;
+  v_name text := public.camc__text(p_name, 40, 'Name');
+  v_message text := public.camc__text(p_message, 200, 'Message', true);
+  v_color text := lower(coalesce(p_color, ''));
+  v_ip text := public.camc__client_ip();
+  p public.camc_wall_posts;
+begin
+  perform public.camc__check_voter(p_voter);
+  select * into w from public.camc_walls where code = upper(btrim(coalesce(p_code, '')));
+  if w.code is null or not w.open then
+    raise exception 'This wall isn''t taking messages right now.' using errcode = '22023';
+  end if;
+  if v_color !~ '^#[0-9a-f]{6}$' then
+    v_color := '#ffe08a';
+  end if;
+  if (select count(*) from public.camc_wall_posts where voter = p_voter and created_at > now() - interval '5 minutes') >= 5 then
+    raise exception 'You''ve sent several messages. Please wait a few minutes.' using errcode = '22023';
+  end if;
+  if v_ip is not null and (select count(*) from public.camc_wall_posts where client_ip = v_ip and created_at > now() - interval '10 minutes') >= 300 then
+    raise exception 'Lots of messages are coming from your network. Please try again soon.' using errcode = '22023';
+  end if;
+  insert into public.camc_wall_posts (wall_code, name, message, color, status, voter, client_ip)
+  values (w.code, v_name, v_message, v_color, case when w.moderated then 'pending' else 'approved' end, p_voter, v_ip)
+  returning * into p;
+  return jsonb_build_object('status', p.status);
+end $$;
+
+/* --- public: awards and run of show screens ------------------------- */
+
+-- Only the award being presented is returned, so winners stay secret until revealed.
+create or replace function public.camc_award_state(p_show text)
+returns jsonb language plpgsql stable security definer set search_path = '' as $$
+declare
+  s public.camc_award_shows;
+  a public.camc_awards;
+begin
+  select * into s from public.camc_award_shows where id = p_show;
+  if not found then
+    return null;
+  end if;
+  if s.current_index >= 0 then
+    select * into a from public.camc_awards where show_id = s.id order by sort, id offset s.current_index limit 1;
+  end if;
+  return jsonb_build_object('title', s.title, 'index', s.current_index,
+                            'total', (select count(*) from public.camc_awards where show_id = s.id),
+                            'award', case when a.id is null then null else public.camc__award_json(a, false) end);
+end $$;
+
+create or replace function public.camc_run_state(p_show text)
+returns jsonb language plpgsql stable security definer set search_path = '' as $$
+declare s public.camc_run_shows;
+begin
+  select * into s from public.camc_run_shows where id = p_show;
+  if not found then
+    return null;
+  end if;
+  return jsonb_build_object('title', s.title, 'date', s.show_date, 'index', s.current_index,
+                            'startedAt', s.current_started_at, 'now', now(),
+                            'items', coalesce((select jsonb_agg(public.camc__run_item_json(i, false) order by i.sort, i.id)
+                                               from public.camc_run_items i where i.show_id = s.id), '[]'::jsonb));
+end $$;
+
+/* --- teachers: studio --------------------------------------------- */
+
+-- List things to manage. p_kind: rooms, polls (p_parent = room code), questions (room code),
+-- walls, posts (wall code), award_shows, awards (show id), run_shows, run_items (show id).
+create or replace function public.camc_studio_list(p_token text, p_kind text, p_parent text default null)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+begin
+  perform public.camc__require(p_token, 'teacher', 'Only teachers can use the studio.');
+  case p_kind
+    when 'rooms' then
+      return coalesce((select jsonb_agg(public.camc__room_json(r)
+                        || jsonb_build_object('pending', (select count(*) from public.camc_questions q where q.room_code = r.code and q.status = 'pending'))
+                        order by r.created_at desc) from public.camc_rooms r), '[]'::jsonb);
+    when 'polls' then
+      return coalesce((select jsonb_agg(public.camc__poll_json(p) order by p.sort, p.id)
+                       from public.camc_polls p where p.room_code = p_parent), '[]'::jsonb);
+    when 'questions' then
+      return coalesce((select jsonb_agg(public.camc__question_json(q) order by q.created_at desc)
+                       from (select * from public.camc_questions where room_code = p_parent order by created_at desc limit 500) q), '[]'::jsonb);
+    when 'walls' then
+      return coalesce((select jsonb_agg(public.camc__wall_json(w)
+                        || jsonb_build_object('pending', (select count(*) from public.camc_wall_posts p where p.wall_code = w.code and p.status = 'pending'),
+                                              'approved', (select count(*) from public.camc_wall_posts p where p.wall_code = w.code and p.status = 'approved'))
+                        order by w.created_at desc) from public.camc_walls w), '[]'::jsonb);
+    when 'posts' then
+      return coalesce((select jsonb_agg(public.camc__post_json(p) order by p.id desc)
+                       from (select * from public.camc_wall_posts where wall_code = p_parent order by id desc limit 1000) p), '[]'::jsonb);
+    when 'award_shows' then
+      return coalesce((select jsonb_agg(jsonb_build_object('id', s.id, 'title', s.title, 'eventId', s.event_id,
+                         'currentIndex', s.current_index, 'count', (select count(*) from public.camc_awards a where a.show_id = s.id))
+                        order by s.created_at desc) from public.camc_award_shows s), '[]'::jsonb);
+    when 'awards' then
+      return coalesce((select jsonb_agg(public.camc__award_json(a, true) order by a.sort, a.id)
+                       from public.camc_awards a where a.show_id = p_parent), '[]'::jsonb);
+    when 'run_shows' then
+      return coalesce((select jsonb_agg(jsonb_build_object('id', s.id, 'title', s.title, 'date', s.show_date,
+                         'currentIndex', s.current_index, 'startedAt', s.current_started_at,
+                         'count', (select count(*) from public.camc_run_items i where i.show_id = s.id))
+                        order by s.created_at desc) from public.camc_run_shows s), '[]'::jsonb);
+    when 'run_items' then
+      return coalesce((select jsonb_agg(public.camc__run_item_json(i, true) order by i.sort, i.id)
+                       from public.camc_run_items i where i.show_id = p_parent), '[]'::jsonb);
+    else
+      raise exception 'Unknown list.' using errcode = '22023';
+  end case;
+end $$;
+
+-- Create (no id) or update (with id) one thing. Returns it.
+create or replace function public.camc_studio_save(p_token text, p_kind text, p_data jsonb)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare
+  u public.camc_users := public.camc__require(p_token, 'teacher', 'Only teachers can use the studio.');
+  d jsonb := coalesce(p_data, '{}'::jsonb);
+  v_id text := nullif(d ->> 'id', '');
+  v_options jsonb;
+  r public.camc_rooms;
+  p public.camc_polls;
+  w public.camc_walls;
+  a public.camc_awards;
+  i public.camc_run_items;
+  v_title text;
+  v_parent text;
+begin
+  case p_kind
+    when 'room' then
+      v_title := public.camc__text(d ->> 'title', 120, 'Title', true);
+      if v_id is null then
+        insert into public.camc_rooms (code, title, created_by) values (public.camc__new_code(), v_title, u.name) returning * into r;
+      else
+        update public.camc_rooms set title = v_title where code = v_id returning * into r;
+      end if;
+      if r.code is null then raise exception 'Not found.' using errcode = 'P0002'; end if;
+      return public.camc__room_json(r);
+
+    when 'poll' then
+      if jsonb_typeof(d -> 'options') <> 'array' then
+        raise exception 'Add at least two answers.' using errcode = '22023';
+      end if;
+      select coalesce(jsonb_agg(to_jsonb(public.camc__text(x, 80, 'Answer'))), '[]'::jsonb) into v_options
+      from jsonb_array_elements_text(d -> 'options') x where btrim(x) <> '';
+      if jsonb_array_length(v_options) not between 2 and 6 then
+        raise exception 'A question needs 2 to 6 answers.' using errcode = '22023';
+      end if;
+      if v_id is null then
+        v_parent := upper(coalesce(d ->> 'roomCode', ''));
+        if not exists (select 1 from public.camc_rooms where code = v_parent) then raise exception 'Not found.' using errcode = 'P0002'; end if;
+        insert into public.camc_polls (room_code, question, options, sort)
+        values (v_parent, public.camc__text(d ->> 'question', 200, 'Question', true), v_options,
+                coalesce((select max(sort) + 1 from public.camc_polls where room_code = v_parent), 0))
+        returning * into p;
+      else
+        -- Changing the answers after people have voted would mix up the results.
+        if exists (select 1 from public.camc_votes where poll_id = v_id::bigint)
+           and (select options from public.camc_polls where id = v_id::bigint) <> v_options then
+          raise exception 'People have already voted, so the answers can''t be changed. Make a new question instead.' using errcode = '22023';
+        end if;
+        update public.camc_polls set question = public.camc__text(d ->> 'question', 200, 'Question', true), options = v_options
+        where id = v_id::bigint returning * into p;
+      end if;
+      if p.id is null then raise exception 'Not found.' using errcode = 'P0002'; end if;
+      return public.camc__poll_json(p);
+
+    when 'wall' then
+      v_title := public.camc__text(d ->> 'title', 120, 'Title', true);
+      if coalesce(d ->> 'theme', 'general') not in ('general', 'waikhru', 'songkran', 'graduation', 'newyear', 'christmas') then
+        raise exception 'Choose a theme.' using errcode = '22023';
+      end if;
+      if v_id is null then
+        insert into public.camc_walls (code, title, theme, created_by)
+        values (public.camc__new_code(), v_title, coalesce(d ->> 'theme', 'general'), u.name) returning * into w;
+      else
+        update public.camc_walls set title = v_title, theme = coalesce(d ->> 'theme', theme) where code = v_id returning * into w;
+      end if;
+      if w.code is null then raise exception 'Not found.' using errcode = 'P0002'; end if;
+      return public.camc__wall_json(w);
+
+    when 'award_show' then
+      v_title := public.camc__text(d ->> 'title', 120, 'Title', true);
+      v_parent := nullif(d ->> 'eventId', '');
+      if v_parent is not null and not exists (select 1 from public.camc_events where id = v_parent) then v_parent := null; end if;
+      if v_id is null then
+        insert into public.camc_award_shows (title, event_id, created_by) values (v_title, v_parent, u.name) returning id into v_id;
+      else
+        update public.camc_award_shows set title = v_title, event_id = v_parent where id = v_id;
+        if not found then raise exception 'Not found.' using errcode = 'P0002'; end if;
+      end if;
+      return (select jsonb_build_object('id', s.id, 'title', s.title, 'eventId', s.event_id, 'currentIndex', s.current_index)
+              from public.camc_award_shows s where s.id = v_id);
+
+    when 'award' then
+      if v_id is null then
+        v_parent := d ->> 'showId';
+        if not exists (select 1 from public.camc_award_shows where id = v_parent) then raise exception 'Not found.' using errcode = 'P0002'; end if;
+        insert into public.camc_awards (show_id, sort) values (v_parent, coalesce((select max(sort) + 1 from public.camc_awards where show_id = v_parent), 0))
+        returning * into a;
+        v_id := a.id::text;
+      end if;
+      if coalesce(d ->> 'photo', '') <> '' and (left(d ->> 'photo', 11) <> 'data:image/' or length(d ->> 'photo') > 400000) then
+        raise exception 'Please choose a smaller photo.' using errcode = '22023';
+      end if;
+      update public.camc_awards set
+        category = public.camc__text(d ->> 'category', 120, 'Award'),
+        recipient = public.camc__text(d ->> 'recipient', 120, 'Recipient'),
+        detail = public.camc__text(d ->> 'detail', 160, 'Details'),
+        seat = upper(public.camc__text(d ->> 'seat', 12, 'Seat')),
+        photo = nullif(d ->> 'photo', '')
+      where id = v_id::bigint returning * into a;
+      if a.id is null then raise exception 'Not found.' using errcode = 'P0002'; end if;
+      return public.camc__award_json(a, true);
+
+    when 'run_show' then
+      v_title := public.camc__text(d ->> 'title', 120, 'Title', true);
+      if v_id is null then
+        insert into public.camc_run_shows (title, show_date, created_by)
+        values (v_title, public.camc__text(d ->> 'date', 20, 'Date'), u.name) returning id into v_id;
+      else
+        update public.camc_run_shows set title = v_title, show_date = public.camc__text(d ->> 'date', 20, 'Date') where id = v_id;
+        if not found then raise exception 'Not found.' using errcode = 'P0002'; end if;
+      end if;
+      return (select jsonb_build_object('id', s.id, 'title', s.title, 'date', s.show_date, 'currentIndex', s.current_index)
+              from public.camc_run_shows s where s.id = v_id);
+
+    when 'run_item' then
+      if v_id is null then
+        v_parent := d ->> 'showId';
+        if not exists (select 1 from public.camc_run_shows where id = v_parent) then raise exception 'Not found.' using errcode = 'P0002'; end if;
+        insert into public.camc_run_items (show_id, sort) values (v_parent, coalesce((select max(sort) + 1 from public.camc_run_items where show_id = v_parent), 0))
+        returning * into i;
+        v_id := i.id::text;
+      end if;
+      update public.camc_run_items set
+        title = public.camc__text(d ->> 'title', 160, 'Item'),
+        presenter = public.camc__text(d ->> 'presenter', 120, 'Presenter'),
+        duration_min = greatest(0, least(600, coalesce((d ->> 'durationMin')::numeric::int, 5))),
+        notes = public.camc__text(d ->> 'notes', 1000, 'Notes')
+      where id = v_id::bigint returning * into i;
+      if i.id is null then raise exception 'Not found.' using errcode = 'P0002'; end if;
+      return public.camc__run_item_json(i, true);
+
+    else
+      raise exception 'Unknown item.' using errcode = '22023';
+  end case;
+end $$;
+
+create or replace function public.camc_studio_delete(p_token text, p_kind text, p_id text)
+returns void language plpgsql security definer set search_path = '' as $$
+begin
+  perform public.camc__require(p_token, 'teacher', 'Only teachers can use the studio.');
+  case p_kind
+    when 'room' then delete from public.camc_rooms where code = p_id;
+    when 'poll' then
+      update public.camc_rooms set active_poll = null, mode = case when mode in ('poll', 'results') then 'idle' else mode end
+      where active_poll = p_id::bigint;
+      delete from public.camc_polls where id = p_id::bigint;
+    when 'question' then delete from public.camc_questions where id = p_id::bigint;
+    when 'wall' then delete from public.camc_walls where code = p_id;
+    when 'post' then delete from public.camc_wall_posts where id = p_id::bigint;
+    when 'award_show' then delete from public.camc_award_shows where id = p_id;
+    when 'award' then delete from public.camc_awards where id = p_id::bigint;
+    when 'run_show' then delete from public.camc_run_shows where id = p_id;
+    when 'run_item' then delete from public.camc_run_items where id = p_id::bigint;
+    else raise exception 'Unknown item.' using errcode = '22023';
+  end case;
+end $$;
+
+-- Live controls: what the big screens show, moderation and settings.
+create or replace function public.camc_studio_set(p_token text, p_kind text, p_id text, p_patch jsonb)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare
+  d jsonb := coalesce(p_patch, '{}'::jsonb);
+  r public.camc_rooms;
+  n integer;
+begin
+  perform public.camc__require(p_token, 'teacher', 'Only teachers can use the studio.');
+  case p_kind
+    when 'room' then
+      if d ? 'activePoll' and d ->> 'activePoll' is not null
+         and not exists (select 1 from public.camc_polls where id = (d ->> 'activePoll')::bigint and room_code = p_id) then
+        raise exception 'Not found.' using errcode = 'P0002';
+      end if;
+      update public.camc_rooms set
+        mode = case when d ? 'mode' and d ->> 'mode' in ('idle', 'poll', 'results', 'qa') then d ->> 'mode' else mode end,
+        active_poll = case when d ? 'activePoll' then (d ->> 'activePoll')::bigint else active_poll end,
+        qa_open = coalesce((d ->> 'qaOpen')::boolean, qa_open),
+        qa_moderated = coalesce((d ->> 'qaModerated')::boolean, qa_moderated)
+      where code = p_id returning * into r;
+      if r.code is null then raise exception 'Not found.' using errcode = 'P0002'; end if;
+      return public.camc__room_json(r);
+    when 'poll' then
+      if coalesce(d ->> 'state', '') not in ('draft', 'open', 'closed') then raise exception 'Unknown state.' using errcode = '22023'; end if;
+      update public.camc_polls set state = d ->> 'state' where id = p_id::bigint;
+      if (d ->> 'reset')::boolean then delete from public.camc_votes where poll_id = p_id::bigint; end if;
+    when 'question' then
+      if coalesce(d ->> 'status', '') not in ('pending', 'approved', 'hidden', 'answered') then raise exception 'Unknown state.' using errcode = '22023'; end if;
+      update public.camc_questions set status = d ->> 'status' where id = p_id::bigint;
+    when 'wall' then
+      update public.camc_walls set open = coalesce((d ->> 'open')::boolean, open),
+                                   moderated = coalesce((d ->> 'moderated')::boolean, moderated)
+      where code = p_id;
+    when 'post' then
+      if coalesce(d ->> 'status', '') not in ('pending', 'approved', 'hidden') then raise exception 'Unknown state.' using errcode = '22023'; end if;
+      update public.camc_wall_posts set status = d ->> 'status' where id = p_id::bigint;
+    when 'award_show' then
+      select count(*) into n from public.camc_awards where show_id = p_id;
+      update public.camc_award_shows set current_index = greatest(-1, least(n - 1, coalesce((d ->> 'currentIndex')::int, -1)))
+      where id = p_id;
+    when 'run_show' then
+      -- One past the last item means the show has finished.
+      select count(*) into n from public.camc_run_items where show_id = p_id;
+      update public.camc_run_shows set
+        current_index = greatest(-1, least(n, coalesce((d ->> 'currentIndex')::int, -1))),
+        current_started_at = now()
+      where id = p_id;
+    else
+      raise exception 'Unknown item.' using errcode = '22023';
+  end case;
+  return jsonb_build_object('ok', true);
+end $$;
+
+-- Put awards, run-of-show items or poll questions in the given order.
+create or replace function public.camc_studio_reorder(p_token text, p_kind text, p_ids jsonb)
+returns void language plpgsql security definer set search_path = '' as $$
+declare
+  v_id bigint;
+  pos integer := 0;
+begin
+  perform public.camc__require(p_token, 'teacher', 'Only teachers can use the studio.');
+  for v_id in select (x)::bigint from jsonb_array_elements_text(coalesce(p_ids, '[]'::jsonb)) x loop
+    case p_kind
+      when 'awards' then update public.camc_awards set sort = pos where id = v_id;
+      when 'run_items' then update public.camc_run_items set sort = pos where id = v_id;
+      when 'polls' then update public.camc_polls set sort = pos where id = v_id;
+      else raise exception 'Unknown list.' using errcode = '22023';
+    end case;
+    pos := pos + 1;
+  end loop;
+end $$;
+
+revoke execute on function
+  public.camc__client_ip(),
+  public.camc__text(text, integer, text, boolean),
+  public.camc__new_code(),
+  public.camc__check_voter(text),
+  public.camc__poll_json(public.camc_polls),
+  public.camc__room_json(public.camc_rooms),
+  public.camc__question_json(public.camc_questions),
+  public.camc__wall_json(public.camc_walls),
+  public.camc__post_json(public.camc_wall_posts),
+  public.camc__award_json(public.camc_awards, boolean),
+  public.camc__run_item_json(public.camc_run_items, boolean)
+from public, anon, authenticated;
+
+grant execute on function
+  public.camc_room_state(text),
+  public.camc_vote(text, bigint, text, integer),
+  public.camc_ask(text, text, text, text),
+  public.camc_room_questions(text),
+  public.camc_upvote(text, bigint, text),
+  public.camc_wall_state(text, bigint),
+  public.camc_wall_post(text, text, text, text, text),
+  public.camc_award_state(text),
+  public.camc_run_state(text),
+  public.camc_studio_list(text, text, text),
+  public.camc_studio_save(text, text, jsonb),
+  public.camc_studio_delete(text, text, text),
+  public.camc_studio_set(text, text, text, jsonb),
+  public.camc_studio_reorder(text, text, jsonb)
+to anon, authenticated;
+
 -- Ask the API to pick up the new functions straight away.
 notify pgrst, 'reload schema';

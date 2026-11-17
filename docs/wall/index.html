@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Message Wall · CAMC</title>
+  <meta name="theme-color" content="#f5f5f7" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+  <link rel="icon" href="../img/icon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="../css/studio.css">
+</head>
+<body>
+<nav class="gnav" aria-label="Global">
+  <div class="wrap">
+    <span class="brand">
+      <span class="brand-mark live-mark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14a1 1 0 0 1 1 1v10l-5 5H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1zm10 16v-4a1 1 0 0 1 1-1h4"/></svg></span>
+      <span>CAMC Wall</span>
+    </span>
+    <div class="gnav-links">
+      <button class="lang-toggle" type="button" aria-label="Language">ไทย</button>
+    </div>
+  </div>
+</nav>
+
+<main class="wrap narrow">
+  <section id="join" class="join" hidden>
+    <h1 class="section-title" data-i18n="join">Join</h1>
+    <p class="section-sub" data-i18n="enterCode">Enter the code shown on the screen</p>
+    <form id="join-form" class="join-form" novalidate>
+      <input class="input code-input" id="code" maxlength="6" autocomplete="off" autocapitalize="characters" spellcheck="false" data-i18n-placeholder="codePh" data-i18n-aria="codePh">
+      <button class="btn btn-lg" type="submit" data-i18n="join">Join</button>
+    </form>
+    <p class="form-error" id="join-error" role="alert"></p>
+  </section>
+
+  <section id="wall" hidden>
+    <header class="room-head wall-head" id="wall-head">
+      <p class="eyebrow"><span id="wall-theme"></span> · <span id="wall-code"></span>
+        <button class="link-btn" type="button" id="change-code" data-i18n="changeCode">Change code</button></p>
+      <h1 class="section-title" id="wall-title"></h1>
+    </header>
+
+    <form class="card card-pad stack-form" id="post-form" novalidate>
+      <input class="input" id="post-name" maxlength="40" autocomplete="off" data-i18n-placeholder="yourName">
+      <div class="note-compose" id="compose">
+        <textarea class="textarea note-input" id="post-message" maxlength="200" rows="4" data-i18n-placeholder="wallPh"></textarea>
+        <span class="counter" id="counter">0 / 200</span>
+      </div>
+      <div class="note-colors">
+        <span class="label" data-i18n="wallColor">Note colour</span>
+        <div class="swatches" id="colors" role="radiogroup"></div>
+      </div>
+      <div class="form-row-end">
+        <span class="note" id="post-note" role="status"></span>
+        <button class="btn btn-lg" type="submit" id="post-send" data-i18n="wallSend">Post Message</button>
+      </div>
+    </form>
+    <p class="closed-banner" id="wall-closed" hidden data-i18n="wallClosed">This wall isn’t taking messages right now.</p>
+
+    <h2 class="list-title" data-i18n="wallRecent">On the wall</h2>
+    <div class="note-grid" id="notes"></div>
+  </section>
+
+  <div id="loading" class="loading"><div class="spinner"></div></div>
+</main>
+
+<script src="../vendor/supabase-2.119.0.js"></script>
+<script src="../config.js"></script>
+<script src="../js/common.js"></script>
+<script src="../js/studio-strings.js"></script>
+<script src="../js/studio-api.js"></script>
+<script src="../js/wall.js"></script>
+</body>
+</html>

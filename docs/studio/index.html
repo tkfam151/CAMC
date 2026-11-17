@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Studio · CAMC</title>
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#f5f5f7" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+  <link rel="icon" href="../img/icon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="../css/studio.css">
+</head>
+<body>
+<nav class="gnav" aria-label="Global">
+  <div class="wrap wrap-wide">
+    <span class="brand">
+      <span class="brand-mark studio-mark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v10H4zM9 20h6M12 16v4"/></svg></span>
+      <span class="hide-sm">CAMC <span data-i18n="studioTitle">Studio</span></span>
+    </span>
+    <div class="gnav-links">
+      <span class="user-chip" id="user-chip" hidden>
+        <span class="avatar" id="user-avatar"></span>
+        <span class="hide-sm" id="user-name"></span>
+      </span>
+      <button class="link" type="button" id="btn-signout" hidden data-i18n="signOut">Sign Out</button>
+      <button class="lang-toggle" type="button" aria-label="Language">ไทย</button>
+    </div>
+  </div>
+</nav>
+
+<div id="loading" class="loading"><div class="spinner"></div></div>
+
+<main id="view-signin" class="signin" hidden>
+  <div class="signin-box">
+    <div class="brand-mark studio-mark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v10H4zM9 20h6M12 16v4" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg></div>
+    <h1 data-i18n="signInStudio">Sign in to Studio</h1>
+    <p data-i18n="teachersOnly">For teachers. Use your CAMC Seating account.</p>
+    <form class="signin-form" id="signin-form" novalidate>
+      <div class="input-group">
+        <input class="input" id="si-user" autocomplete="username" autocapitalize="none" spellcheck="false" data-i18n-placeholder="username" data-i18n-aria="username">
+        <input class="input" id="si-pass" type="password" autocomplete="current-password" data-i18n-placeholder="password" data-i18n-aria="password">
+      </div>
+      <button class="submit" type="submit" data-i18n-aria="signIn" aria-label="Sign In">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      </button>
+    </form>
+    <div class="form-error" id="si-error" role="alert"></div>
+  </div>
+</main>
+
+<main id="view-app" hidden>
+  <div class="wrap wrap-wide">
+    <header class="studio-head">
+      <h1 class="section-title" data-i18n="studioTitle">Studio</h1>
+      <p class="section-sub" data-i18n="studioSub">Live voting, message walls, awards and the running order for the auditorium.</p>
+      <nav class="segmented tabs" aria-label="Sections" id="tabs">
+        <a href="#/vote" data-tab="vote" data-i18n="tabVote">Voting &amp; Q&amp;A</a>
+        <a href="#/walls" data-tab="walls" data-i18n="tabWalls">Message Walls</a>
+        <a href="#/awards" data-tab="awards" data-i18n="tabAwards">Awards</a>
+        <a href="#/run" data-tab="run" data-i18n="tabRun">Run of Show</a>
+      </nav>
+    </header>
+    <div class="studio-layout">
+      <aside class="side">
+        <button class="btn" type="button" id="btn-new">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+          <span id="btn-new-label"></span>
+        </button>
+        <ul class="side-list" id="side-list"></ul>
+      </aside>
+      <section class="detail" id="detail"></section>
+    </div>
+  </div>
+</main>
+
+<script src="../vendor/supabase-2.119.0.js"></script>
+<script src="../vendor/qrcode-generator-1.4.4.js"></script>
+<script src="../config.js"></script>
+<script src="../js/common.js"></script>
+<script src="../js/studio-strings.js"></script>
+<script src="../js/data.js"></script>
+<script src="../js/hall.js"></script>
+<script src="../js/studio-api.js"></script>
+<script src="../js/studio.js"></script>
+</body>
+</html>

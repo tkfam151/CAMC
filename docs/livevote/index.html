@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Live Vote · Big Screen</title>
+  <meta name="theme-color" content="#000000">
+  <link rel="icon" href="../img/icon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/screens.css">
+</head>
+<body>
+  <div class="screen" id="screen">
+    <header class="topbar">
+      <div>
+        <h1 id="title"></h1>
+        <p class="sub" id="sub"></p>
+      </div>
+      <div class="join-chip" id="chip" hidden></div>
+    </header>
+    <main class="stage" id="stage"></main>
+  </div>
+  <div class="controls">
+    <button class="ctl lang-toggle" type="button" aria-label="Language">ไทย</button>
+    <button class="ctl" type="button" id="btn-fullscreen" data-i18n="ktFullscreen">Full Screen</button>
+  </div>
+
+  <script src="../vendor/supabase-2.119.0.js"></script>
+  <script src="../vendor/qrcode-generator-1.4.4.js"></script>
+  <script src="../config.js"></script>
+  <script src="../js/common.js"></script>
+  <script src="../js/studio-strings.js"></script>
+  <script src="../js/studio-api.js"></script>
+  <script src="../js/screen.js"></script>
+  <script src="../js/livevote.js"></script>
+</body>
+</html>
