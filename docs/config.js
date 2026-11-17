@@ -10,6 +10,6 @@
  * supabase/schema.sql). Never put the service_role key here.
  */
 window.CAMC_CONFIG = {
-  supabaseUrl: '',
-  supabaseAnonKey: '',
+  supabaseUrl: 'https://rbdgizbcocuzahuwnjtx.supabase.co',
+  supabaseAnonKey: 'sb_publishable_jCmTggKoH6quMAnvSeAj1w_0rJuajfU',
 };

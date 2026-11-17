@@ -38,8 +38,8 @@ Every push to that branch publishes the site again automatically.
 
 ## Administrator account
 
-- **Username:** `camcadmin`
-- **Password:** `sisbcamc`
+- **Username:** `*********`
+- **Password:** `********`
 
 Sign in at `/teacher/` and use **Change Password** in the top bar before going live.
 
