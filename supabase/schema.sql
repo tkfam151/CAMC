@@ -532,7 +532,7 @@ declare
 begin
   if d is null or jsonb_typeof(d) <> 'object'
      or exists (select 1 from jsonb_object_keys(d) k
-                where k not in ('base', 'petal', 'flower', 'flowerColor', 'candles', 'incense', 'deco')) then
+                where k not in ('base', 'petal', 'flower', 'flowerColor', 'candles', 'incense', 'deco', 'avatar', 'wish')) then
     raise exception 'Invalid krathong design.' using errcode = '22023';
   end if;
   if coalesce(d ->> 'base', '') not in ('leaf', 'bread', 'coconut', 'lotus')
@@ -541,7 +541,9 @@ begin
      or coalesce(d ->> 'petal', '') !~ '^#[0-9a-fA-F]{6}$'
      or coalesce(d ->> 'flowerColor', '') !~ '^#[0-9a-fA-F]{6}$'
      or jsonb_typeof(d -> 'candles') <> 'number'
-     or jsonb_typeof(d -> 'incense') <> 'number' then
+     or jsonb_typeof(d -> 'incense') <> 'number'
+     or coalesce(d ->> 'avatar', 'boy') not in ('boy', 'girl', 'boy2', 'girl2')
+     or coalesce(d ->> 'wish', 'love') not in ('love', 'health', 'wealth', 'success', 'study') then
     raise exception 'Invalid krathong design.' using errcode = '22023';
   end if;
   v_candles := (d ->> 'candles')::numeric::int;
@@ -552,7 +554,9 @@ begin
   return jsonb_build_object(
     'base', d ->> 'base', 'petal', lower(d ->> 'petal'), 'flower', d ->> 'flower',
     'flowerColor', lower(d ->> 'flowerColor'), 'candles', v_candles, 'incense', v_incense,
-    'deco', d ->> 'deco');
+    'deco', d ->> 'deco')
+    || case when d ? 'avatar' then jsonb_build_object('avatar', d ->> 'avatar') else '{}'::jsonb end
+    || case when d ? 'wish' then jsonb_build_object('wish', d ->> 'wish') else '{}'::jsonb end;
 end $$;
 
 -- "Ploy 9H" -> "Pl*****": first two characters, then one * per remaining character.
@@ -581,12 +585,12 @@ returns jsonb language sql stable security definer set search_path = '' as $$
   select jsonb_build_object('open', coalesce((select value from public.camc_settings where key = 'krathong_open'), 'true') <> 'false');
 $$;
 
--- Public: float a krathong.
+-- Public: float a krathong. Students pick a doll face and one of five wishes;
+-- no typed text is accepted, so nothing rude can appear on the river.
+-- (p_name and p_wish are kept for older pages and ignored.)
 create or replace function public.camc_submit_krathong(p_name text, p_wish text, p_design jsonb)
 returns jsonb language plpgsql security definer set search_path = '' as $$
 declare
-  v_name text := btrim(regexp_replace(coalesce(p_name, ''), '[[:cntrl:]]', ' ', 'g'));
-  v_wish text := btrim(regexp_replace(coalesce(p_wish, ''), '[[:cntrl:]]', ' ', 'g'));
   v_design jsonb := public.camc__clean_krathong_design(p_design);
   v_headers json;
   v_ip text;
@@ -595,11 +599,8 @@ begin
   if not (public.camc_krathong_status() ->> 'open')::boolean then
     raise exception 'Krathong submissions are closed right now.' using errcode = '22023';
   end if;
-  if length(v_name) > 40 then
-    raise exception 'Please keep your name to 40 characters.' using errcode = '22023';
-  end if;
-  if length(v_wish) > 140 then
-    raise exception 'Please keep your wish to 140 characters.' using errcode = '22023';
+  if not (v_design ? 'avatar') or not (v_design ? 'wish') then
+    raise exception 'Please choose a character and a wish.' using errcode = '22023';
   end if;
 
   -- Rate limit by the visitor's IP address (supplied by the Supabase API gateway).
@@ -620,7 +621,7 @@ begin
   end if;
 
   insert into public.camc_krathongs (name, wish, design, client_ip)
-  values (v_name, v_wish, v_design, v_ip)
+  values ('', '', v_design, v_ip)
   returning * into k;
   return public.camc__krathong_json(k);
 end $$;

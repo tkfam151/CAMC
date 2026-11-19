@@ -9,6 +9,18 @@
   const FLOWER_COLORS = ['#ff9f0a', '#ffd60a', '#ffffff', '#ff6fae', '#e53935', '#9b59b6', '#ff5722'];
   const HEX = /^#[0-9a-fA-F]{6}$/;
 
+  // Doll faces that sit on the krathong (instead of typing a name).
+  const AVATARS = ['boy', 'girl', 'boy2', 'girl2'];
+  // Wishes to choose from (instead of typing one). Shown as a ribbon on the krathong.
+  const WISHES = {
+    love: { icon: '❤️', color: '#ff2d55', th: 'ความรัก', en: 'Love' },
+    health: { icon: '💪', color: '#34c759', th: 'สุขภาพ', en: 'Health' },
+    wealth: { icon: '💰', color: '#c9a227', th: 'การเงิน', en: 'Wealth' },
+    success: { icon: '🏆', color: '#ff9500', th: 'ความสำเร็จ', en: 'Success' },
+    study: { icon: '📚', color: '#007aff', th: 'การเรียน', en: 'Study' },
+  };
+  const WISH_KEYS = Object.keys(WISHES);
+
   const DEFAULT = { base: 'leaf', petal: '#2e7d32', flower: 'marigold', flowerColor: '#ff9f0a', candles: 1, incense: 2, deco: 'pearls' };
 
   /** Return a safe, complete design (unknown values fall back to defaults). */
@@ -23,6 +35,8 @@
       candles: int(d.candles, 1, 3, DEFAULT.candles),
       incense: int(d.incense, 0, 3, DEFAULT.incense),
       deco: DECOS.includes(d.deco) ? d.deco : DEFAULT.deco,
+      avatar: AVATARS.includes(d.avatar) ? d.avatar : null,
+      wish: WISH_KEYS.includes(d.wish) ? d.wish : null,
     };
   }
 
@@ -31,6 +45,7 @@
     return {
       base: pick(BASES), petal: pick(PETAL_COLORS), flower: pick(FLOWERS), flowerColor: pick(FLOWER_COLORS),
       candles: 1 + Math.floor(Math.random() * 3), incense: Math.floor(Math.random() * 4), deco: pick(DECOS),
+      avatar: pick(AVATARS), wish: pick(WISH_KEYS),
     };
   }
 
@@ -209,6 +224,59 @@
     return '';
   }
 
+  /* --- doll face ----------------------------------------------------------- */
+
+  function avatar(kind) {
+    if (!kind) return '';
+    const x = 62, y = 112; // sits on the left of the flowers
+    const skin = '#ffdcc2', line = '#3a2a20';
+    let back = '', front = '';
+    if (kind === 'boy') {
+      front = `<path d="M${x - 15} ${y - 1} Q${x - 16} ${y - 18} ${x} ${y - 18} Q${x + 16} ${y - 18} ${x + 15} ${y - 1} Q${x + 9} ${y - 10} ${x + 2} ${y - 9} Q${x - 6} ${y - 11} ${x - 15} ${y - 1} Z" fill="#2b2118"/>`;
+    } else if (kind === 'boy2') {
+      // Cap
+      front = `<path d="M${x - 15} ${y - 3} Q${x - 15} ${y - 19} ${x} ${y - 19} Q${x + 15} ${y - 19} ${x + 15} ${y - 3} Z" fill="#1e88e5"/>` +
+        `<path d="M${x + 4} ${y - 4} Q${x + 18} ${y - 6} ${x + 24} ${y - 2} Q${x + 14} ${y + 0} ${x + 4} ${y - 1} Z" fill="#1565c0"/>` +
+        `<circle cx="${x}" cy="${y - 19}" r="2" fill="#1565c0"/>` +
+        `<path d="M${x - 15} ${y - 2} Q${x - 13} ${y + 3} ${x - 11} ${y - 1} Z" fill="#5d4037"/>`;
+    } else if (kind === 'girl') {
+      // Pigtails with pink bows
+      back = `<circle cx="${x - 17}" cy="${y + 3}" r="7" fill="#2b2118"/><circle cx="${x + 17}" cy="${y + 3}" r="7" fill="#2b2118"/>`;
+      front = `<path d="M${x - 15} ${y + 2} Q${x - 17} ${y - 18} ${x} ${y - 18} Q${x + 17} ${y - 18} ${x + 15} ${y + 2} Q${x + 12} ${y - 9} ${x} ${y - 10} Q${x - 12} ${y - 9} ${x - 15} ${y + 2} Z" fill="#2b2118"/>` +
+        `<path d="M${x - 21} ${y - 4} l-5 -4 l0 8 Z M${x - 15} ${y - 4} l5 -4 l0 8 Z" fill="#ff6fae"/>` +
+        `<path d="M${x + 15} ${y - 4} l-5 -4 l0 8 Z M${x + 21} ${y - 4} l5 -4 l0 8 Z" fill="#ff6fae"/>`;
+    } else {
+      // girl2: bun on top and a flower
+      back = `<circle cx="${x}" cy="${y - 19}" r="7" fill="#4e342e"/><path d="M${x - 15} ${y - 2} Q${x - 18} ${y + 12} ${x - 11} ${y + 14} L${x + 11} ${y + 14} Q${x + 18} ${y + 12} ${x + 15} ${y - 2} Z" fill="#4e342e"/>`;
+      front = `<path d="M${x - 15} ${y + 1} Q${x - 16} ${y - 17} ${x} ${y - 17} Q${x + 16} ${y - 17} ${x + 15} ${y + 1} Q${x + 6} ${y - 10} ${x - 4} ${y - 9} Q${x - 10} ${y - 8} ${x - 15} ${y + 1} Z" fill="#4e342e"/>` +
+        [0, 72, 144, 216, 288].map((a) => `<ellipse cx="${x + 12}" cy="${y - 15}" rx="2.6" ry="4" fill="#ffd60a" transform="rotate(${a} ${x + 12} ${y - 12})"/>`).join('') +
+        `<circle cx="${x + 12}" cy="${y - 12}" r="1.8" fill="#ff9500"/>`;
+    }
+    return `<g class="kt-avatar">${back}` +
+      `<circle cx="${x}" cy="${y}" r="15" fill="${skin}" stroke="#e9b996" stroke-width="1"/>` +
+      `<ellipse cx="${x - 5}" cy="${y + 1}" rx="1.8" ry="2.2" fill="${line}"/><ellipse cx="${x + 5}" cy="${y + 1}" rx="1.8" ry="2.2" fill="${line}"/>` +
+      `<circle cx="${x - 9}" cy="${y + 5}" r="2.6" fill="#ff8fa3" opacity=".55"/><circle cx="${x + 9}" cy="${y + 5}" r="2.6" fill="#ff8fa3" opacity=".55"/>` +
+      `<path d="M${x - 4} ${y + 6} Q${x} ${y + 10} ${x + 4} ${y + 6}" stroke="${line}" stroke-width="1.4" fill="none" stroke-linecap="round"/>` +
+      `${front}</g>`;
+  }
+
+  /* --- wish ribbon ---------------------------------------------------------- */
+
+  function wishLabel(key, lang) {
+    const w = WISHES[key];
+    return w ? `${w.icon} ${lang === 'en' ? w.en : w.th}` : '';
+  }
+
+  function wishRibbon(key, lang) {
+    const w = WISHES[key];
+    if (!w) return '';
+    // Text comes from the fixed WISHES list, never from what someone typed.
+    return `<g class="kt-wish">` +
+      `<rect x="68" y="170" width="104" height="20" rx="10" fill="${w.color}" stroke="#fff" stroke-width="1.5"/>` +
+      `<text x="120" y="184.5" text-anchor="middle" font-size="11.5" font-weight="700" fill="#fff" ` +
+      `font-family="-apple-system, BlinkMacSystemFont, 'Noto Sans Thai', 'Segoe UI', sans-serif">${wishLabel(key, lang)}</text></g>`;
+  }
+
   /**
    * SVG markup for a krathong. All values come from normalize(), so the
    * string is safe to insert as HTML.
@@ -226,10 +294,11 @@
     const title = opts.title ? `<title>${String(opts.title).replace(/[<>&"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]))}</title>` : '';
     return (
       `<svg class="krathong-svg" viewBox="0 20 240 172" xmlns="http://www.w3.org/2000/svg" role="img">${title}${defs}` +
-      base(d) + backPetals(d) + mound(d) + candlesAndIncense(d, id, !!opts.animated) + flowers(d) + frontPetals(d) + deco(d) +
+      base(d) + backPetals(d) + mound(d) + candlesAndIncense(d, id, !!opts.animated) + flowers(d) + avatar(d.avatar) + frontPetals(d) + deco(d) +
+      (opts.noWish ? '' : wishRibbon(d.wish, opts.lang || (window.CAMC && window.CAMC.getLang ? window.CAMC.getLang() : 'th'))) +
       `</svg>`
     );
   }
 
-  window.Krathong = { svg, normalize, random, DEFAULT, BASES, FLOWERS, DECOS, PETAL_COLORS, FLOWER_COLORS };
+  window.Krathong = { svg, normalize, random, wishLabel, avatarSvg: avatar, DEFAULT, BASES, FLOWERS, DECOS, PETAL_COLORS, FLOWER_COLORS, AVATARS, WISHES, WISH_KEYS };
 })();

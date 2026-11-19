@@ -33,7 +33,7 @@
   <header class="hero kt-hero" id="kt-hero">
     <p class="eyebrow kt-eyebrow" data-i18n="ktEyebrow">Loy Krathong</p>
     <h1 class="headline" data-i18n="ktTitle">Build your krathong.</h1>
-    <p class="subhead" data-i18n="ktSub">Choose its base, petals and flowers, light the candles, then float it with a wish.</p>
+    <p class="subhead" data-i18n="ktSub">Choose its base, petals and flowers, pick your doll and a wish, then float it.</p>
   </header>
 
   <div class="wrap">
@@ -87,16 +87,14 @@
           </div>
         </section>
 
+        <section class="panel">
+          <h3 data-i18n="ktAvatar">Choose your doll</h3>
+          <div class="kt-options kt-avatars" id="opt-avatar" role="radiogroup"></div>
+        </section>
+
         <form class="panel kt-wish" id="kt-form" novalidate>
-          <div class="field">
-            <label for="kt-name" data-i18n="ktYourName">Your name (optional)</label>
-            <input class="input" id="kt-name" maxlength="40" autocomplete="off" data-i18n-placeholder="ktNamePh">
-          </div>
-          <div class="field">
-            <label for="kt-wish" data-i18n="ktWish">Your wish</label>
-            <textarea class="input kt-textarea" id="kt-wish" maxlength="140" rows="3" data-i18n-placeholder="ktWishPh"></textarea>
-            <span class="kt-counter" id="kt-counter">0 / 140</span>
-          </div>
+          <h3 data-i18n="ktWishPick">Make a wish for…</h3>
+          <div class="kt-wishes" id="opt-wish" role="radiogroup"></div>
           <div class="form-error" id="kt-error" role="alert"></div>
           <button class="btn btn-lg btn-block" type="submit" id="kt-submit" data-i18n="ktFloat">Float My Krathong</button>
         </form>

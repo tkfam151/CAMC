@@ -270,10 +270,11 @@
       card.className = 'kt-card' + (k.hidden ? ' is-hidden' : '');
       const art = document.createElement('div');
       art.className = 'kt-card-art';
-      art.innerHTML = Krathong.svg(k.design);
+      art.innerHTML = Krathong.svg(k.design, { lang: window.CAMC.getLang() });
       const name = document.createElement('div');
       name.className = 'kt-card-name';
-      name.textContent = k.name || t('ktFriend');
+      // Newer krathongs have no typed name: show the wish they picked instead.
+      name.textContent = k.name || (k.design && k.design.wish ? Krathong.wishLabel(k.design.wish, window.CAMC.getLang()) : t('ktFriend'));
       const wish = document.createElement('div');
       wish.className = 'kt-card-wish';
       wish.textContent = k.wish;

@@ -628,3 +628,14 @@ a:hover { text-decoration: underline; }
   .kt-options-5 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .kt-water { border-radius: 20px; }
 }
+
+/* Loy Krathong: doll faces and wish buttons (no typing) */
+.kt-avatars { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.kt-face { width: 64px; height: 64px; border-radius: 50%; background: linear-gradient(180deg, #13265a, #0e3a63); display: grid; place-items: center; overflow: hidden; }
+.kt-face svg { width: 100%; height: 100%; display: block; }
+.kt-wishes { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 10px; }
+.kt-wish-option { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 14px 8px; border-radius: 16px; border: 2px solid var(--line-strong); background: var(--surface); color: var(--text); font: inherit; font-size: 16px; font-weight: 600; cursor: pointer; transition: transform 0.15s, border-color 0.15s, background 0.15s; }
+.kt-wish-option:hover { transform: translateY(-1px); border-color: var(--wish); }
+.kt-wish-option[aria-checked="true"] { border-color: var(--wish); background: color-mix(in srgb, var(--wish) 14%, var(--surface)); }
+.kt-wish-icon { font-size: 30px; line-height: 1; }
+@media (max-width: 734px) { .kt-avatars { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

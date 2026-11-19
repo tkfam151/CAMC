@@ -1,7 +1,7 @@
 /* Loy Krathong live river: floats every submitted krathong across the screen. */
 (function () {
   'use strict';
-  const { t, applyI18n, onLangChange } = window.CAMC;
+  const { t, applyI18n, onLangChange, getLang } = window.CAMC;
   const $ = (id) => document.getElementById(id);
 
   const POLL_MS = 5000;        // check for new krathongs
@@ -54,14 +54,8 @@
     const el = document.createElement('div');
     el.className = 'kt-sprite';
     el.style.width = baseW + 'px';
-    el.innerHTML = Krathong.svg(k.design, { animated: true });
-    const label = document.createElement('div');
-    label.className = 'kt-label';
-    const n = document.createElement('span');
-    n.className = 'n';
-    n.textContent = maskName(k.name) || t('ktFriend');
-    label.appendChild(n);
-    el.appendChild(label);
+    // No typed text on the river: the doll face and the wish ribbon are part of the drawing.
+    el.innerHTML = Krathong.svg(k.design, { animated: true, lang: getLang() });
     layer.appendChild(el);
 
     const depth = opts.depth ?? pickDepth();
@@ -278,7 +272,8 @@
       if (!lastCreatedAt || k.createdAt > lastCreatedAt) lastCreatedAt = k.createdAt;
       if (fresh) {
         priority.push(k.id);
-        toast(t('ktNew', maskName(k.name) || t('ktFriend')));
+        const wish = k.design && k.design.wish ? Krathong.wishLabel(k.design.wish, getLang()) : '';
+        toast(wish ? t('ktNewWish', wish) : t('ktNew', maskName(k.name) || t('ktFriend')));
       }
     }
     updateCount();
@@ -370,7 +365,8 @@
   window.addEventListener('resize', () => measure());
   onLangChange(() => {
     updateCount();
-    sprites.forEach((s) => { if (!maskName(s.k.name)) s.el.querySelector('.kt-label .n').textContent = t('ktFriend'); });
+    // Redraw so the wish ribbons switch language too.
+    sprites.forEach((s) => { s.el.innerHTML = Krathong.svg(s.k.design, { animated: true, lang: getLang() }); });
   });
 
   applyI18n();
