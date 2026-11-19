@@ -253,6 +253,7 @@
       krathongs = list;
       $('kt-open').checked = !!(status && status.open);
       ktFeatures = (status && status.features) || {};
+      $('kt-countdown').value = toLocalInput(status && status.countdownAt);
       const { groups } = await DB.listGroups();
       ktGroups = groups;
       renderFeatures();
@@ -270,7 +271,91 @@
     ['classes', 'ftClasses'],
     ['fireworks', 'ftFireworks'],
     ['music', 'ftMusic'],
+    ['countdown', 'ftCountdown'],
+    ['keepsake', 'ftKeepsake'],
   ];
+
+  // datetime-local inputs use local time without a zone: "2026-11-19T19:30".
+  function toLocalInput(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  // A summary for activity reports: counts per class, per wish, and class by wish.
+  // Opens in Excel or Google Sheets (UTF-8 with BOM so Thai shows correctly).
+  $('kt-summary').addEventListener('click', () => {
+    const lang = window.CAMC.getLang();
+    const visible = krathongs.filter((k) => !k.hidden);
+    const wishKeys = Krathong.WISH_KEYS;
+    const wishName = (w) => `${Krathong.WISHES[w][lang === 'en' ? 'en' : 'th']}`;
+    const className = (id) => {
+      if (!id) return t('csvNoClass');
+      const g = ktGroups.find((x) => x.id === id);
+      return g ? g.name : id;
+    };
+    const byClass = {};
+    const byWish = {};
+    const grid = {};
+    visible.forEach((k) => {
+      const c = (k.design && k.design.group) || '';
+      const w = (k.design && k.design.wish) || '';
+      byClass[c] = (byClass[c] || 0) + 1;
+      if (w) byWish[w] = (byWish[w] || 0) + 1;
+      grid[c] = grid[c] || {};
+      if (w) grid[c][w] = (grid[c][w] || 0) + 1;
+    });
+    const rows = [
+      [t('csvTitle'), new Date().toLocaleString(lang === 'th' ? 'th-TH' : 'en-GB')],
+      [t('csvTotal'), visible.length],
+      [t('csvHidden'), krathongs.length - visible.length],
+      [],
+      [t('csvByClass')],
+      [t('csvClass'), t('csvCount')],
+      ...Object.entries(byClass).sort((a, b) => b[1] - a[1]).map(([c, n]) => [className(c), n]),
+      [],
+      [t('csvByWish')],
+      [t('csvWish'), t('csvCount')],
+      ...wishKeys.filter((w) => byWish[w]).sort((a, b) => byWish[b] - byWish[a]).map((w) => [wishName(w), byWish[w]]),
+      [],
+      [t('csvClassWish')],
+      [t('csvClass'), ...wishKeys.map(wishName), t('csvTotal')],
+      ...Object.keys(grid).sort((a, b) => (byClass[b] || 0) - (byClass[a] || 0))
+        .map((c) => [className(c), ...wishKeys.map((w) => grid[c][w] || 0), byClass[c]]),
+    ];
+    const cell = (v) => {
+      const s = String(v == null ? '' : v);
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const csv = '\ufeff' + rows.map((r) => r.map(cell).join(',')).join('\r\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    a.download = `loykrathong-summary-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  });
+
+  $('kt-countdown-set').addEventListener('click', async () => {
+    const v = $('kt-countdown').value;
+    if (!v) { $('kt-countdown').focus(); return; }
+    try {
+      await DB.setKrathongCountdown(new Date(v).toISOString());
+      toast(t('saved'));
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  });
+
+  $('kt-countdown-clear').addEventListener('click', async () => {
+    try {
+      await DB.setKrathongCountdown(null);
+      $('kt-countdown').value = '';
+      toast(t('saved'));
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  });
 
   // On/off switches for the Loy Krathong extras.
   function renderFeatures() {

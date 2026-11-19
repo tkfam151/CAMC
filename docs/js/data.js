@@ -214,10 +214,11 @@
   const clearKrathongs = () => rpc('camc_clear_krathongs', { p_token: getToken() });
   const setKrathongOpen = (open) => rpc('camc_set_krathong_open', { p_token: getToken(), p_open: open });
   const setKrathongFeatures = (features) => rpc('camc_set_krathong_features', { p_token: getToken(), p_features: features });
+  const setKrathongCountdown = (at) => rpc('camc_set_krathong_countdown', { p_token: getToken(), p_at: at || null });
 
   window.DB = {
     listKrathongs, krathongIds, krathongStatus, submitKrathong,
-    listAllKrathongs, setKrathongHidden, deleteKrathong, clearKrathongs, setKrathongOpen, setKrathongFeatures,
+    listAllKrathongs, setKrathongHidden, deleteKrathong, clearKrathongs, setKrathongOpen, setKrathongFeatures, setKrathongCountdown,
     configured,
     listEvents, getEvent, listGroups,
     login, logout, me, changePassword,

@@ -16,6 +16,8 @@
   let features = {};
   const groups = new Map();
   let onChange = () => {};
+  let countdownAt = null;   // ISO time everyone floats together
+  let clockOffset = 0;      // server time minus this computer's time
 
   /* ---------------- Features ---------------- */
 
@@ -23,6 +25,8 @@
     try {
       const s = await DB.krathongStatus();
       const next = (s && s.features) || {};
+      countdownAt = (s && s.countdownAt) || null;
+      if (s && s.now) clockOffset = Date.parse(s.now) - Date.now();
       const changed = JSON.stringify(next) !== JSON.stringify(features);
       if (next.classes && !groups.size) {
         const { groups: list } = await DB.listGroups();
@@ -30,6 +34,7 @@
       }
       features = next;
       if (features.music) Music.start(); else Music.stop();
+      $('btn-photo').hidden = !features.keepsake;
       if (changed) onChange();
     } catch { /* try again later */ }
   }
@@ -93,6 +98,32 @@
       return li;
     }));
   }
+
+  /* ---------------- Countdown to floating together ---------------- */
+
+  function celebratedKey(at) { return 'camc_countdown_done_' + at; }
+  function countdownTick() {
+    const box = $('countdown');
+    if (!features.countdown || !countdownAt) { box.hidden = true; return; }
+    const left = Date.parse(countdownAt) - (Date.now() + clockOffset);
+    if (left > 0) {
+      const s = Math.ceil(left / 1000);
+      const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+      $('countdown-v').textContent = (h ? `${h}:${String(m).padStart(2, '0')}` : String(m)) + ':' + String(sec).padStart(2, '0');
+      box.classList.toggle('soon', s <= 10);
+      box.hidden = false;
+      return;
+    }
+    box.hidden = true;
+    // At zero: the big moment (once, and only if we're within two minutes of it).
+    let done = false;
+    try { done = localStorage.getItem(celebratedKey(countdownAt)) === '1'; } catch { /* ignore */ }
+    if (!done && left > -120000) {
+      try { localStorage.setItem(celebratedKey(countdownAt), '1'); } catch { /* ignore */ }
+      celebrate(t('ktHappy'), 15000);
+    }
+  }
+  setInterval(countdownTick, 250);
 
   /* ---------------- Fireworks at every 100 ---------------- */
 
@@ -161,21 +192,26 @@
     else { running = false; ctx.clearRect(0, 0, W, H); }
   }
 
-  function celebrate(n) {
-    const banner = $('milestone');
-    banner.textContent = t('ktMilestone', n);
-    banner.hidden = false;
-    setTimeout(() => { banner.hidden = true; }, 7000);
+  function fireworks(ms) {
     if (reduceMotion) return;
-    showUntil = performance.now() + 6500;
+    showUntil = Math.max(showUntil, performance.now() + ms);
     for (let i = 0; i < 4; i++) setTimeout(launch, i * 250);
     if (!running) { running = true; requestAnimationFrame(tick); }
+  }
+
+  function celebrate(text, ms = 6500) {
+    const banner = $('milestone');
+    banner.textContent = text;
+    banner.hidden = false;
+    clearTimeout(celebrate.timer);
+    celebrate.timer = setTimeout(() => { banner.hidden = true; }, ms + 1500);
+    fireworks(ms);
   }
 
   /** Call when the number of krathongs goes from `before` to `after`. */
   function milestone(before, after) {
     if (!features.fireworks) return;
-    if (Math.floor(after / 100) > Math.floor(before / 100) && after >= 100) celebrate(Math.floor(after / 100) * 100);
+    if (Math.floor(after / 100) > Math.floor(before / 100) && after >= 100) celebrate(t('ktMilestone', Math.floor(after / 100) * 100));
   }
 
   /* ---------------- Music ---------------- */
@@ -189,6 +225,7 @@
     let step = 0;
     let degree = 5;
     let phrase = [];
+    let song = null; // <audio> with a song file chosen on this computer
     const BEAT = 0.42;                 // seconds per note: slow and gentle
     const ROOT = 293.66;               // D4
     const SCALE = [0, 2, 4, 7, 9];     // pentatonic, as in much Thai music
@@ -265,7 +302,32 @@
       $('music-btn').hidden = !show;
     }
 
+    async function playSong() {
+      try {
+        await song.play();
+        showButton(false);
+      } catch {
+        showButton(true); // the browser needs a tap first
+      }
+    }
+
+    /** Use a song file chosen on this computer instead of the built-in tune. */
+    function setSong(file) {
+      if (song) { song.pause(); URL.revokeObjectURL(song.src); }
+      song = new Audio(URL.createObjectURL(file));
+      song.loop = true;
+      song.volume = 0.8;
+      clearInterval(timer);
+      if (actx) actx.suspend().catch(() => {});
+      if (on) playSong();
+    }
+
     async function start() {
+      if (song) {
+        on = true;
+        if (song.paused) playSong();
+        return;
+      }
       if (on) { if (actx && actx.state !== 'running') showButton(true); return; }
       on = true;
       try {
@@ -292,6 +354,7 @@
       if (!on) return;
       on = false;
       showButton(false);
+      if (song) { song.pause(); return; }
       clearInterval(timer);
       if (actx) {
         master.gain.setTargetAtTime(0.0001, actx.currentTime, 0.3);
@@ -300,6 +363,7 @@
     }
 
     async function unlock() {
+      if (on && song) { if (song.paused) playSong(); return; }
       if (!on || !actx) return;
       await actx.resume().catch(() => {});
       if (actx.state === 'running') {
@@ -310,8 +374,111 @@
 
     $('music-btn').addEventListener('click', unlock);
     ['pointerdown', 'keydown'].forEach((ev) => window.addEventListener(ev, unlock));
-    return { start, stop };
+    return { start, stop, setSong };
   })();
+
+  $('btn-song').addEventListener('click', () => $('song-file').click());
+  $('song-file').addEventListener('change', (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    Music.setSong(f);
+    $('btn-song').textContent = '🎵 ' + f.name.replace(/\.[^.]+$/, '').slice(0, 28);
+  });
+
+  /* ---------------- Keepsake picture ---------------- */
+
+  // Draw an SVG element onto the canvas at its place on screen.
+  function drawSvg(c2, svg, rect) {
+    return new Promise((resolve) => {
+      const clone = svg.cloneNode(true);
+      clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+      // Colours that come from the stylesheet (e.g. the wave lines) must be copied in.
+      const originals = svg.querySelectorAll('path');
+      clone.querySelectorAll('path').forEach((p, i) => {
+        const cs = getComputedStyle(originals[i]);
+        p.setAttribute('fill', cs.fill);
+        p.setAttribute('stroke', cs.stroke);
+        p.setAttribute('stroke-width', cs.strokeWidth);
+      });
+      clone.setAttribute('width', rect.width);
+      clone.setAttribute('height', rect.height);
+      const url = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(clone)], { type: 'image/svg+xml' }));
+      const img = new Image();
+      img.onload = () => { c2.drawImage(img, rect.left, rect.top, rect.width, rect.height); URL.revokeObjectURL(url); resolve(); };
+      img.onerror = () => { URL.revokeObjectURL(url); resolve(); };
+      img.src = url;
+    });
+  }
+
+  /** Save one picture of the river (sky, moon, krathongs and title) as a PNG. */
+  async function savePicture() {
+    const W = window.innerWidth, H = window.innerHeight;
+    const scale = Math.min(2, 3840 / W);
+    const out = document.createElement('canvas');
+    out.width = Math.round(W * scale);
+    out.height = Math.round(H * scale);
+    const c2 = out.getContext('2d');
+    c2.scale(scale, scale);
+
+    // Night sky and river, as in live.css
+    const horizon = (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--horizon')) || 54) / 100;
+    const bg = c2.createLinearGradient(0, 0, 0, H);
+    [[0, '#030716'], [0.32, '#0a1438'], [0.48, '#1b1f55'], [horizon, '#2a2560'], [Math.min(1, horizon + 0.001), '#0c2246'], [0.7, '#08203f'], [1, '#04122a']]
+      .forEach(([o, c]) => bg.addColorStop(o, c));
+    c2.fillStyle = bg;
+    c2.fillRect(0, 0, W, H);
+    c2.drawImage($('sky'), 0, 0, W, H); // stars, lanterns, moonlight
+
+    // Moon
+    const m = $('moon').getBoundingClientRect();
+    const mx = m.left + m.width / 2, my = m.top + m.height / 2, mr = m.width / 2;
+    const glow = c2.createRadialGradient(mx, my, mr, mx, my, mr * 3);
+    glow.addColorStop(0, 'rgba(255, 238, 180, 0.3)');
+    glow.addColorStop(1, 'rgba(255, 238, 180, 0)');
+    c2.fillStyle = glow;
+    c2.beginPath(); c2.arc(mx, my, mr * 3, 0, Math.PI * 2); c2.fill();
+    const face = c2.createRadialGradient(mx - mr * 0.25, my - mr * 0.25, 0, mx, my, mr);
+    face.addColorStop(0, '#fffdf0'); face.addColorStop(0.55, '#f6ebbf'); face.addColorStop(1, '#dccb86');
+    c2.fillStyle = face;
+    c2.beginPath(); c2.arc(mx, my, mr, 0, Math.PI * 2); c2.fill();
+
+    // Skyline, waves, then krathongs from far to near
+    const skyline = document.querySelector('.skyline');
+    if (skyline) await drawSvg(c2, skyline, skyline.getBoundingClientRect());
+    const waves = document.querySelector('.waves');
+    if (waves) await drawSvg(c2, waves, waves.getBoundingClientRect());
+    const sprites = [...document.querySelectorAll('.kt-sprite')]
+      .sort((a, b) => (Number(a.style.zIndex) || 0) - (Number(b.style.zIndex) || 0));
+    for (const sp of sprites) {
+      const svg = sp.querySelector('svg');
+      const r = svg && svg.getBoundingClientRect();
+      if (r && r.right > 0 && r.left < W && r.width > 4) await drawSvg(c2, svg, r);
+    }
+    c2.drawImage(canvas, 0, 0, W, H); // fireworks, if any
+
+    // Title, count and date
+    const font = '-apple-system, BlinkMacSystemFont, "Noto Sans Thai", "Segoe UI", sans-serif';
+    const pad = Math.max(24, W * 0.03);
+    c2.textBaseline = 'top';
+    c2.fillStyle = '#f6dc96';
+    c2.font = `700 ${Math.round(Math.max(36, W * 0.04))}px ${font}`;
+    c2.fillText('ลอยกระทง · Loy Krathong', pad, pad);
+    c2.fillStyle = 'rgba(255, 255, 255, 0.8)';
+    c2.font = `500 ${Math.round(Math.max(16, W * 0.013))}px ${font}`;
+    const date = new Date().toLocaleDateString(getLang() === 'th' ? 'th-TH' : 'en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+    c2.fillText(`CAMC · ${$('count').textContent} · ${date}`, pad, pad + Math.max(46, W * 0.05));
+
+    out.toBlob((blob) => {
+      if (!blob) return;
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `loykrathong-${new Date().toISOString().slice(0, 10)}.png`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    }, 'image/png');
+  }
+
+  $('btn-photo').addEventListener('click', () => { savePicture().catch(() => {}); });
 
   window.LiveExtras = { start, groupFor, renderStats, milestone, features: () => features };
 })();

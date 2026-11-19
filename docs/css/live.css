@@ -110,3 +110,9 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #050b1f; col
 .music-btn { position: absolute; left: 50%; bottom: clamp(16px, 3vh, 40px); transform: translateX(-50%); z-index: 8; font: inherit; font-size: 16px; color: #fff; background: rgba(255, 255, 255, 0.16); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 980px; padding: 10px 20px; cursor: pointer; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
 .music-btn:hover { background: rgba(255, 255, 255, 0.26); }
 @media (max-width: 700px) { .stats-panel { max-width: 60vw; } .class-board { display: none; } }
+
+/* Countdown */
+.countdown { position: absolute; left: 50%; top: clamp(16px, 3vh, 40px); transform: translateX(-50%); z-index: 6; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 12px 34px; border-radius: 26px; background: rgba(10, 16, 40, 0.55); border: 1px solid rgba(255, 214, 120, 0.4); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+.countdown .k { font-size: clamp(14px, 1.3vw, 22px); color: #ffe8a8; font-weight: 600; }
+.countdown .v { font-size: clamp(40px, 5vw, 90px); font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.05; color: #fff; }
+.countdown.soon .v { color: #ffd60a; }

@@ -641,3 +641,5 @@ a:hover { text-decoration: underline; }
 @media (max-width: 734px) { .kt-avatars { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .kt-features { margin-bottom: 20px; }
 .kt-feature-list { display: flex; flex-direction: column; gap: 12px; }
+.kt-countdown-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); font-size: 14px; }
+.kt-countdown-row .input { width: auto; }

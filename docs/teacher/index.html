@@ -178,6 +178,7 @@
       <label class="switch"><input type="checkbox" id="kt-open" role="switch"> <span data-i18n="ktAccepting">Accepting krathongs</span></label>
       <span class="muted small" id="kt-total"></span>
       <span class="spacer"></span>
+      <button class="btn btn-secondary btn-sm" type="button" id="kt-summary" data-i18n="ktSummary">Download Summary</button>
       <a class="btn btn-secondary btn-sm" href="../loykrathong/" target="_blank" rel="noopener" data-i18n="ktOpenBuilder">Open Builder</a>
       <a class="btn btn-secondary btn-sm" href="../liveloykrathong/" target="_blank" rel="noopener" data-i18n="ktOpenLive">Open Live River</a>
       <button class="btn btn-danger btn-sm" type="button" id="kt-clear" data-i18n="ktClearAll">Clear All Krathongs</button>
@@ -186,6 +187,12 @@
       <h3 data-i18n="ktFeatures">Extras</h3>
       <p class="muted small" style="margin:4px 0 14px" data-i18n="ktFeaturesSub">Turn these on or off at any time.</p>
       <div class="kt-feature-list" id="kt-feature-list"></div>
+      <div class="kt-countdown-row">
+        <label for="kt-countdown" data-i18n="ktCountdownTime">Float together at</label>
+        <input class="input input-sm" type="datetime-local" id="kt-countdown">
+        <button class="btn btn-sm" type="button" id="kt-countdown-set" data-i18n="ktSetTime">Set Time</button>
+        <button class="btn btn-secondary btn-sm" type="button" id="kt-countdown-clear" data-i18n="ktClearTime">Clear</button>
+      </div>
     </section>
     <div class="kt-grid" id="kt-grid"></div>
     <p class="empty" id="kt-empty" hidden data-i18n="ktEmpty">No krathongs yet.</p>

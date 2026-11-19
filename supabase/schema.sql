@@ -588,17 +588,36 @@ $$;
 --   classes      students pick their class; flags and a class leaderboard on the river
 --   fireworks    fireworks on the big screen at every 100 krathongs
 --   music        soft Thai-style music on the big screen
+--   countdown    countdown to floating together (time set by a teacher)
+--   keepsake     a button on the big screen to save a picture of the river
 create or replace function public.camc__krathong_features()
 returns jsonb language sql stable set search_path = '' as $$
-  select '{"extraWishes":true,"wishCount":true,"classes":true,"fireworks":true,"music":true}'::jsonb
-         || coalesce((select value::jsonb from public.camc_settings where key = 'krathong_features'), '{}'::jsonb);
+  select '{"extraWishes":true,"wishCount":true,"classes":true,"fireworks":true,"music":true,"countdown":true,"keepsake":true}'::jsonb
+         || (coalesce((select value::jsonb from public.camc_settings where key = 'krathong_features'), '{}'::jsonb) - 'winner' - 'learn');
 $$;
 
 create or replace function public.camc_krathong_status()
 returns jsonb language sql stable security definer set search_path = '' as $$
   select jsonb_build_object('open', coalesce((select value from public.camc_settings where key = 'krathong_open'), 'true') <> 'false',
-                            'features', public.camc__krathong_features());
+                            'features', public.camc__krathong_features(),
+                            'countdownAt', (select value from public.camc_settings where key = 'krathong_countdown'),
+                            'now', now());
 $$;
+
+-- Teachers: the time everyone floats together (null clears it).
+create or replace function public.camc_set_krathong_countdown(p_token text, p_at timestamptz)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+begin
+  perform public.camc__require(p_token, 'teacher', 'Only teachers can manage krathongs.');
+  if p_at is null then
+    delete from public.camc_settings where key = 'krathong_countdown';
+  else
+    insert into public.camc_settings (key, value)
+    values ('krathong_countdown', to_char(p_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'))
+    on conflict (key) do update set value = excluded.value;
+  end if;
+  return public.camc_krathong_status();
+end $$;
 
 create or replace function public.camc_set_krathong_features(p_token text, p_features jsonb)
 returns jsonb language plpgsql security definer set search_path = '' as $$
@@ -607,7 +626,7 @@ declare
   k text;
 begin
   perform public.camc__require(p_token, 'teacher', 'Only teachers can manage krathongs.');
-  foreach k in array array['extraWishes', 'wishCount', 'classes', 'fireworks', 'music'] loop
+  foreach k in array array['extraWishes', 'wishCount', 'classes', 'fireworks', 'music', 'countdown', 'keepsake'] loop
     if jsonb_typeof(p_features -> k) = 'boolean' then
       v := jsonb_set(v, array[k], p_features -> k);
     end if;
@@ -735,7 +754,8 @@ grant execute on function
   public.camc_delete_krathong(text, bigint),
   public.camc_clear_krathongs(text),
   public.camc_set_krathong_open(text, boolean),
-  public.camc_set_krathong_features(text, jsonb)
+  public.camc_set_krathong_features(text, jsonb),
+  public.camc_set_krathong_countdown(text, timestamptz)
 to anon, authenticated;
 
 /* ================================================================== */
