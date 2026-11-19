@@ -336,6 +336,19 @@
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   });
 
+  $('kt-fw-save').addEventListener('click', async () => {
+    const n = Math.round(Number($('kt-fw-every').value));
+    if (!(n >= 10 && n <= 10000)) { toast(t('ktFireworksRange'), 'error'); return; }
+    try {
+      const status = await DB.setKrathongFeatures({ fireworksEvery: n });
+      ktFeatures = status.features;
+      $('kt-fw-every').value = ktFeatures.fireworksEvery || n;
+      toast(t('saved'));
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  });
+
   $('kt-countdown-set').addEventListener('click', async () => {
     const v = $('kt-countdown').value;
     if (!v) { $('kt-countdown').focus(); return; }
@@ -359,6 +372,7 @@
 
   // On/off switches for the Loy Krathong extras.
   function renderFeatures() {
+    $('kt-fw-every').value = ktFeatures.fireworksEvery || 100;
     const box = $('kt-feature-list');
     box.innerHTML = '';
     FEATURES.forEach(([key, label]) => {

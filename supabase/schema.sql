@@ -592,7 +592,7 @@ $$;
 --   keepsake     a button on the big screen to save a picture of the river
 create or replace function public.camc__krathong_features()
 returns jsonb language sql stable set search_path = '' as $$
-  select '{"extraWishes":true,"wishCount":true,"classes":true,"fireworks":true,"music":true,"countdown":true,"keepsake":true}'::jsonb
+  select '{"extraWishes":true,"wishCount":true,"classes":true,"fireworks":true,"music":true,"countdown":true,"keepsake":true,"fireworksEvery":100}'::jsonb
          || (coalesce((select value::jsonb from public.camc_settings where key = 'krathong_features'), '{}'::jsonb) - 'winner' - 'learn');
 $$;
 
@@ -631,6 +631,10 @@ begin
       v := jsonb_set(v, array[k], p_features -> k);
     end if;
   end loop;
+  -- How many krathongs between fireworks (10 to 10000).
+  if jsonb_typeof(p_features -> 'fireworksEvery') = 'number' then
+    v := jsonb_set(v, '{fireworksEvery}', to_jsonb(least(10000, greatest(10, round((p_features ->> 'fireworksEvery')::numeric)::int))));
+  end if;
   insert into public.camc_settings (key, value) values ('krathong_features', v::text)
   on conflict (key) do update set value = excluded.value;
   return public.camc_krathong_status();

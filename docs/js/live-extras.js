@@ -3,7 +3,7 @@
  * teacher page (Loy Krathong tab); the big screen checks every 30 seconds.
  *   wishCount  how many krathongs each wish has
  *   classes    class flags on krathongs and a top-5 class leaderboard
- *   fireworks  fireworks every 100 krathongs
+ *   fireworks  fireworks every N krathongs (teachers choose N, default 100)
  *   music      an original, soft Thai-style tune made in the browser
  *              (pentatonic ranat/khim-like notes with a gentle ching)
  */
@@ -125,7 +125,7 @@
   }
   setInterval(countdownTick, 250);
 
-  /* ---------------- Fireworks at every 100 ---------------- */
+  /* ---------------- Fireworks every N krathongs ---------------- */
 
   const canvas = $('fireworks');
   const ctx = canvas.getContext('2d');
@@ -211,7 +211,8 @@
   /** Call when the number of krathongs goes from `before` to `after`. */
   function milestone(before, after) {
     if (!features.fireworks) return;
-    if (Math.floor(after / 100) > Math.floor(before / 100) && after >= 100) celebrate(t('ktMilestone', Math.floor(after / 100) * 100));
+    const every = Math.max(10, Number(features.fireworksEvery) || 100);
+    if (Math.floor(after / every) > Math.floor(before / every) && after >= every) celebrate(t('ktMilestone', Math.floor(after / every) * every));
   }
 
   /* ---------------- Music ---------------- */

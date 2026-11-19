@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="../css/style.css?v=202611191401">
+  <link rel="stylesheet" href="../css/style.css?v=202611191406">
 </head>
 <body>
 
@@ -192,6 +192,12 @@
         <input class="input input-sm" type="datetime-local" id="kt-countdown">
         <button class="btn btn-sm" type="button" id="kt-countdown-set" data-i18n="ktSetTime">Set Time</button>
         <button class="btn btn-secondary btn-sm" type="button" id="kt-countdown-clear" data-i18n="ktClearTime">Clear</button>
+      </div>
+      <div class="kt-countdown-row">
+        <label for="kt-fw-every" data-i18n="ktFireworksEvery">Fireworks every</label>
+        <input class="input input-sm" type="number" id="kt-fw-every" min="10" max="10000" step="1" style="width:110px" inputmode="numeric">
+        <span data-i18n="ktKrathongsUnit">krathongs</span>
+        <button class="btn btn-sm" type="button" id="kt-fw-save" data-i18n="save">Save</button>
       </div>
     </section>
     <div class="kt-grid" id="kt-grid"></div>
@@ -440,12 +446,12 @@
   </form>
 </div>
 
-<script src="../vendor/supabase-2.119.0.js?v=202611191401"></script>
-<script src="../config.js?v=202611191401"></script>
-<script src="../js/common.js?v=202611191401"></script>
-<script src="../js/data.js?v=202611191401"></script>
-<script src="../js/hall.js?v=202611191401"></script>
-<script src="../js/krathong.js?v=202611191401"></script>
-<script src="../js/teacher.js?v=202611191401"></script>
+<script src="../vendor/supabase-2.119.0.js?v=202611191406"></script>
+<script src="../config.js?v=202611191406"></script>
+<script src="../js/common.js?v=202611191406"></script>
+<script src="../js/data.js?v=202611191406"></script>
+<script src="../js/hall.js?v=202611191406"></script>
+<script src="../js/krathong.js?v=202611191406"></script>
+<script src="../js/teacher.js?v=202611191406"></script>
 </body>
 </html>
