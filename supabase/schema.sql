@@ -542,7 +542,7 @@ begin
      or coalesce(d ->> 'flowerColor', '') !~ '^#[0-9a-fA-F]{6}$'
      or jsonb_typeof(d -> 'candles') <> 'number'
      or jsonb_typeof(d -> 'incense') <> 'number'
-     or coalesce(d ->> 'avatar', 'boy') not in ('boy', 'girl', 'boy2', 'girl2')
+     or coalesce(d ->> 'avatar', 'boy') not in ('boy', 'girl')
      or coalesce(d ->> 'wish', 'love') not in ('love', 'health', 'wealth', 'success', 'study') then
     raise exception 'Invalid krathong design.' using errcode = '22023';
   end if;
@@ -566,12 +566,11 @@ returns text language sql immutable set search_path = '' as $$
               else left(btrim(p), 2) || repeat('*', length(btrim(p)) - 2) end;
 $$;
 
--- Public: visible krathongs for the live river, with masked names and no wishes.
+-- Public: visible krathongs for the live river. Names and typed wishes are never included.
 -- With p_since, only newer ones (oldest first); without it, the newest p_limit.
 create or replace function public.camc_public_krathongs(p_since timestamptz default null, p_limit integer default 500)
 returns jsonb language sql stable security definer set search_path = '' as $$
-  select coalesce(jsonb_agg(jsonb_build_object('id', k.id, 'name', public.camc__mask_name(k.name),
-                                               'design', k.design, 'createdAt', k.created_at)
+  select coalesce(jsonb_agg(jsonb_build_object('id', k.id, 'design', k.design, 'createdAt', k.created_at)
                             order by k.created_at), '[]'::jsonb)
   from (select * from public.camc_krathongs
         where not hidden and (p_since is null or created_at > p_since)
@@ -585,13 +584,14 @@ returns jsonb language sql stable security definer set search_path = '' as $$
   select jsonb_build_object('open', coalesce((select value from public.camc_settings where key = 'krathong_open'), 'true') <> 'false');
 $$;
 
--- Public: float a krathong. Students pick a doll face and one of five wishes;
--- no typed text is accepted, so nothing rude can appear on the river.
--- (p_name and p_wish are kept for older pages and ignored.)
+-- Public: float a krathong. Students pick a doll (boy or girl) and one of five
+-- wishes, and type their name. The name is only for teachers: it is never shown
+-- on the river or returned to the public. (p_wish is ignored: wishes are chosen.)
 create or replace function public.camc_submit_krathong(p_name text, p_wish text, p_design jsonb)
 returns jsonb language plpgsql security definer set search_path = '' as $$
 declare
   v_design jsonb := public.camc__clean_krathong_design(p_design);
+  v_name text := btrim(regexp_replace(coalesce(p_name, ''), '[[:cntrl:]]', ' ', 'g'));
   v_headers json;
   v_ip text;
   k public.camc_krathongs;
@@ -600,7 +600,13 @@ begin
     raise exception 'Krathong submissions are closed right now.' using errcode = '22023';
   end if;
   if not (v_design ? 'avatar') or not (v_design ? 'wish') then
-    raise exception 'Please choose a character and a wish.' using errcode = '22023';
+    raise exception 'Please choose a doll and a wish.' using errcode = '22023';
+  end if;
+  if v_name = '' then
+    raise exception 'Please type your name.' using errcode = '22023';
+  end if;
+  if length(v_name) > 40 then
+    raise exception 'Please keep your name to 40 characters.' using errcode = '22023';
   end if;
 
   -- Rate limit by the visitor's IP address (supplied by the Supabase API gateway).
@@ -621,9 +627,10 @@ begin
   end if;
 
   insert into public.camc_krathongs (name, wish, design, client_ip)
-  values ('', '', v_design, v_ip)
+  values (v_name, '', v_design, v_ip)
   returning * into k;
-  return public.camc__krathong_json(k);
+  -- The name stays private: don't echo it back.
+  return public.camc__krathong_json(k) - 'name';
 end $$;
 
 -- Teachers: every krathong, including hidden ones (newest first).

@@ -10,7 +10,9 @@
   const HEX = /^#[0-9a-fA-F]{6}$/;
 
   // Doll faces that sit on the krathong (instead of typing a name).
-  const AVATARS = ['boy', 'girl', 'boy2', 'girl2'];
+  const AVATARS = ['boy', 'girl'];
+  // Older krathongs may use these too; they can still be drawn but aren't offered.
+  const DRAWABLE_AVATARS = ['boy', 'girl', 'boy2', 'girl2'];
   // Wishes to choose from (instead of typing one). Shown as a ribbon on the krathong.
   const WISHES = {
     love: { icon: '❤️', color: '#ff2d55', th: 'ความรัก', en: 'Love' },
@@ -35,7 +37,7 @@
       candles: int(d.candles, 1, 3, DEFAULT.candles),
       incense: int(d.incense, 0, 3, DEFAULT.incense),
       deco: DECOS.includes(d.deco) ? d.deco : DEFAULT.deco,
-      avatar: AVATARS.includes(d.avatar) ? d.avatar : null,
+      avatar: DRAWABLE_AVATARS.includes(d.avatar) ? d.avatar : null,
       wish: WISH_KEYS.includes(d.wish) ? d.wish : null,
     };
   }

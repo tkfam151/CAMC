@@ -273,11 +273,11 @@
       art.innerHTML = Krathong.svg(k.design, { lang: window.CAMC.getLang() });
       const name = document.createElement('div');
       name.className = 'kt-card-name';
-      // Newer krathongs have no typed name: show the wish they picked instead.
-      name.textContent = k.name || (k.design && k.design.wish ? Krathong.wishLabel(k.design.wish, window.CAMC.getLang()) : t('ktFriend'));
+      // The student's name is only shown here, to teachers.
+      name.textContent = k.name || t('ktFriend');
       const wish = document.createElement('div');
       wish.className = 'kt-card-wish';
-      wish.textContent = k.wish;
+      wish.textContent = k.design && k.design.wish ? Krathong.wishLabel(k.design.wish, window.CAMC.getLang()) : k.wish;
       const meta = document.createElement('div');
       meta.className = 'kt-card-meta';
       meta.textContent = formatDate(k.createdAt, true);

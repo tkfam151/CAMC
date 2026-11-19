@@ -19,15 +19,6 @@
   const sprites = [];
   let W = 0, H = 0, horizonY = 0, baseW = 200;
 
-  // Keeps the first 2 characters and replaces the rest with '*'
-  function maskName(rawName) {
-    const clean = (rawName || '').trim();
-    if (!clean) return '';
-    const chars = Array.from(clean); // safe for Thai characters & emojis
-    if (chars.length <= 2) return clean;
-    return chars.slice(0, 2).join('') + '*'.repeat(chars.length - 2);
-  }
-
   /* ------------------------------------------------------------------ */
   /* Layout                                                            */
   /* ------------------------------------------------------------------ */
@@ -270,11 +261,8 @@
       byId.set(k.id, k);
       pool.push(k);
       if (!lastCreatedAt || k.createdAt > lastCreatedAt) lastCreatedAt = k.createdAt;
-      if (fresh) {
-        priority.push(k.id);
-        const wish = k.design && k.design.wish ? Krathong.wishLabel(k.design.wish, getLang()) : '';
-        toast(wish ? t('ktNewWish', wish) : t('ktNew', maskName(k.name) || t('ktFriend')));
-      }
+      // New ones float in first (with a glow); no message pops up at the top.
+      if (fresh) priority.push(k.id);
     }
     updateCount();
     if (fresh) {
@@ -313,16 +301,6 @@
       }
     } catch { /* ignore */ }
     setTimeout(refreshHidden, REFRESH_MS);
-  }
-
-  function toast(message) {
-    const box = $('toasts');
-    const n = document.createElement('div');
-    n.className = 'toast';
-    n.textContent = message;
-    box.appendChild(n);
-    while (box.children.length > 3) box.firstChild.remove();
-    setTimeout(() => n.remove(), 6000);
   }
 
   /* ------------------------------------------------------------------ */

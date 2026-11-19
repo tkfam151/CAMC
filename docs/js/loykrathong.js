@@ -2,7 +2,7 @@
 (function () {
   'use strict';
   const { t, applyI18n, onLangChange, getLang } = window.CAMC;
-  const AVATAR_LABEL = { boy: 'avBoy', girl: 'avGirl', boy2: 'avBoy2', girl2: 'avGirl2' };
+  const AVATAR_LABEL = { boy: 'avBoy', girl: 'avGirl' };
   const $ = (id) => document.getElementById(id);
 
   let design = Krathong.random();
@@ -14,9 +14,9 @@
     if (saved) design = Krathong.normalize(saved);
   } catch { /* ignore */ }
   // Drafts saved before faces and wishes existed get one of each to start with.
-  if (!design.avatar || !design.wish) {
+  if (!Krathong.AVATARS.includes(design.avatar) || !design.wish) {
     const r = Krathong.random();
-    design = { ...design, avatar: design.avatar || r.avatar, wish: design.wish || r.wish };
+    design = { ...design, avatar: Krathong.AVATARS.includes(design.avatar) ? design.avatar : r.avatar, wish: design.wish || r.wish };
   }
 
   function saveDraft() {
@@ -157,6 +157,8 @@
 
   /* --- Floating --------------------------------------------------------- */
 
+  $('kt-name').addEventListener('input', () => { $('kt-error').textContent = ''; });
+
   $('kt-random').addEventListener('click', () => {
     design = Krathong.random();
     saveDraft();
@@ -178,7 +180,14 @@
         $('kt-error').textContent = t('ktPickBoth');
         return;
       }
-      await DB.submitKrathong({ name: '', wish: '', design });
+      const name = $('kt-name').value.trim();
+      if (!name) {
+        $('kt-error').textContent = t('ktNeedName');
+        $('kt-name').focus();
+        return;
+      }
+      // The name is kept for teachers only; it never appears on the river.
+      await DB.submitKrathong({ name, wish: '', design });
       // Lock the builder on this device so it can't go back and float another.
       try { localStorage.setItem(SENT_KEY, JSON.stringify({ at: Date.now(), design })); } catch { /* ignore */ }
       // Float the preview away, then show the thank-you panel.
