@@ -7,7 +7,9 @@
   let events = [];
   let current = null; // full event
   let labelMode = 'both'; // 'num' | 'cls' | 'both' (seat number above the class)
-  let activeChip = null;
+  let activeChip = null; // the class picked in the big picker or a class chip
+  const MY_CLASS_KEY = 'camc_my_class';
+  const savedClass = () => { try { return localStorage.getItem(MY_CLASS_KEY) || ''; } catch { return ''; } };
   let userZoom = false;
 
   function autoFit() {
@@ -109,7 +111,9 @@
     document.title = `${current.name} · CAMC Seating`;
     $('event-view').hidden = false;
     $('seat-search').value = new URLSearchParams(location.search).get('q') || '';
-    activeChip = null;
+    // Open straight on the teacher's class if they picked one before.
+    const mine = savedClass();
+    activeChip = mine && Object.values(current.seatData || {}).some((d) => d && d.classId === mine) ? mine : null;
     renderEvent();
   }
 
@@ -166,16 +170,72 @@
         n.className = 'n';
         n.textContent = c.n;
         chip.append(dot, document.createTextNode(c.vip ? c.name : id), n);
-        chip.addEventListener('click', () => {
-          activeChip = activeChip === id ? null : id;
-          $('seat-search').value = activeChip || '';
-          renderLegend();
-          runSearch(true);
-        });
+        chip.addEventListener('click', () => pickClass(activeChip === id ? null : id, false));
         legend.appendChild(chip);
       });
 
     renderVipList(vips);
+    renderFinder(counts, order);
+  }
+
+  // The big "See where your class sits" picker and the plain-language answer.
+  function renderFinder(counts, order) {
+    const sel = $('my-class');
+    const ids = Object.keys(counts).filter((id) => id !== '?' && !counts[id].vip)
+      .sort((a, b) => (order.indexOf(a) + 1 || 999) - (order.indexOf(b) + 1 || 999));
+    sel.innerHTML = '';
+    const first = document.createElement('option');
+    first.value = '';
+    first.textContent = t('pickYourClass');
+    sel.appendChild(first);
+    ids.forEach((id) => {
+      const o = document.createElement('option');
+      o.value = id;
+      o.textContent = counts[id].name;
+      sel.appendChild(o);
+    });
+    sel.value = activeChip && ids.includes(activeChip) ? activeChip : '';
+    $('class-finder').hidden = ids.length === 0;
+
+    const out = $('cf-result');
+    out.innerHTML = '';
+    if (!sel.value) return;
+    const info = Hall.classSeats(current, sel.value);
+    const head = document.createElement('div');
+    head.className = 'cf-head';
+    const dot = document.createElement('span');
+    dot.className = 'dot';
+    dot.style.background = counts[sel.value].color;
+    head.append(dot, document.createTextNode(`${counts[sel.value].name} · ${t('seatsN', info.count)}`));
+    out.appendChild(head);
+    const list = document.createElement('div');
+    list.className = 'cf-rows';
+    info.rows.forEach(({ row, ranges }) => {
+      const r = document.createElement('span');
+      r.className = 'cf-row';
+      const b = document.createElement('b');
+      b.textContent = `${t('rowWord')} ${row}`;
+      r.append(b, document.createTextNode(` ${ranges}`));
+      list.appendChild(r);
+    });
+    if (info.extra.length) {
+      const r = document.createElement('span');
+      r.className = 'cf-row';
+      const b = document.createElement('b');
+      b.textContent = t('extraSeatsShort');
+      r.append(b, document.createTextNode(` ${info.extra.join(', ')}`));
+      list.appendChild(r);
+    }
+    out.appendChild(list);
+  }
+
+  function pickClass(id, scroll) {
+    activeChip = id || null;
+    try { if (id) localStorage.setItem(MY_CLASS_KEY, id); else localStorage.removeItem(MY_CLASS_KEY); } catch { /* ignore */ }
+    $('seat-search').value = '';
+    renderLegend();
+    runSearch(false);
+    if (scroll && id) $('hall-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   function renderVipList(vips) {
@@ -231,7 +291,8 @@
     $('seat-search-clear').hidden = !q;
     const card = $('hall');
     const before = window.scrollY;
-    const n = Hall.highlight(card, current, q);
+    // Typed search wins; otherwise show the picked class.
+    const n = q.trim() || !activeChip ? Hall.highlight(card, current, q) : Hall.highlightClass(card, current, activeChip);
     if (!scroll) window.scrollTo(0, before);
     $('result-note').textContent = q.trim() ? (n ? t('results', n) : t('noResults')) : '';
   }
@@ -246,6 +307,7 @@
     runSearch(true);
   }, 150));
   $('seat-search-clear').addEventListener('click', () => { $('seat-search').value = ''; activeChip = null; renderLegend(); runSearch(false); });
+  $('my-class').addEventListener('change', (e) => pickClass(e.target.value, true));
   $('back-link').addEventListener('click', (e) => { e.preventDefault(); navigate(location.pathname); });
 
   function applyLabels() {

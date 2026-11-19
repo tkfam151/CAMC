@@ -5,7 +5,7 @@ The website is hosted free on **GitHub Pages**, and all data lives in **Supabase
 
 | Page | Who | What |
 | --- | --- | --- |
-| `/` | Everyone | Search for an event and view its seating plan. Find a class, a person or a seat number, and see the VIP guests. |
+| `/` | Everyone | Search for an event and view its seating plan. Teachers pick their class in the big **See where your class sits** box (it is remembered next time) to light up only their seats; you can also search for a person or seat number. |
 | `/teacher/` | Teachers | Create events and edit seating charts (auto-allocate, drag to swap, names and photos, extra seats, import/export JSON). Add and edit **classes** and **VIP groups** under **Classes & VIP**. |
 | `/loykrathong/` | Everyone | Build a krathong (base, petals, flowers, candles, incense, decoration), add a name and a wish, and float it. No sign-in needed. |
 | `/liveloykrathong/` | Big screen | A night river where every krathong floats past with its wish. New ones appear within a few seconds. Includes a QR code to the builder. |
