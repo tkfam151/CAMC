@@ -254,6 +254,20 @@
     runSearch(true);
   }, 150));
   $('seat-search-clear').addEventListener('click', () => { $('seat-search').value = ''; activeChip = null; renderLegend(); runSearch(false); });
+  // Printing: shrink the plan so the whole hall fits on one landscape page.
+  window.addEventListener('beforeprint', () => {
+    const hall = $('hall').querySelector('.hall');
+    if (!hall || $('event-view').hidden) return;
+    hall.style.zoom = '';
+    const r = hall.getBoundingClientRect();
+    const scale = Math.min(1, 1000 / r.width, 650 / r.height);
+    hall.style.zoom = String(Math.floor(scale * 100) / 100);
+  });
+  window.addEventListener('afterprint', () => {
+    const hall = $('hall').querySelector('.hall');
+    if (hall) hall.style.zoom = '';
+  });
+
   $('back-link').addEventListener('click', (e) => { e.preventDefault(); navigate(location.pathname); });
 
   function applyLabels() {

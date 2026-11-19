@@ -538,8 +538,11 @@ a:hover { text-decoration: underline; }
   .hall-card { box-shadow: none; padding: 0; overflow: visible; }
   .editor { display: block; padding: 0; }
   .seat { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .event-head { padding: 0 0 12px; }
-  .stats { box-shadow: none; border: 1px solid #ccc; }
+  .event-head { padding: 0 0 8px; }
+  .event-head .headline { margin-top: 0 !important; font-size: 26px; }
+  /* Print only the event name and the seating plan */
+  #event-view .event-meta, #event-view .stats, #event-view .legend { display: none !important; }
+  #event-view .hall-card { break-inside: avoid; }
   .searching .seat { opacity: 1 !important; }
   .seat.match { animation: none; }
 }
