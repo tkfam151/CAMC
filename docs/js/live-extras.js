@@ -394,13 +394,6 @@
     return { start, stop, setSong };
   })();
 
-  $('btn-song').addEventListener('click', () => $('song-file').click());
-  $('song-file').addEventListener('change', (e) => {
-    const f = e.target.files[0];
-    if (!f) return;
-    Music.setSong(f);
-    $('btn-song').textContent = '🎵 ' + f.name.replace(/\.[^.]+$/, '').slice(0, 28);
-  });
 
   /* ---------------- Keepsake picture ---------------- */
 

@@ -58,7 +58,7 @@ Teachers manage these at `/teacher/` → **Classes & VIP** (or with **New Class 
 - **Moderation:** teachers sign in at `/teacher/` → **Loy Krathong** to hide or delete krathongs, turn **Accepting krathongs** off when the event ends, or **Clear All Krathongs** to start fresh next year. Hidden krathongs leave the live river within about 30 seconds.
 - **Limits:** names up to 40 characters, wishes up to 140. Up to 120 krathongs per network every 10 minutes (phones on school Wi-Fi share one network address), and 300 per minute overall.
 
-- **Music:** put the school's song file at `docs/audio.mp3` and the big screen plays it on a loop when the music switch is on. Without it, a built-in tune plays. The teacher can also pick a file on the projector computer with **🎵 Choose song file**.
+- **Music:** put the school's song file at `docs/audio.mp3` and the big screen plays it on a loop when the music switch is on. Without it, a built-in tune plays.
 
 If you set up the database before Loy Krathong was added, run `supabase/schema.sql` again in the SQL Editor to add it. Nothing existing is changed.
 
