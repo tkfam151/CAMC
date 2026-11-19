@@ -45,6 +45,18 @@
       </div>
     </aside>
 
+    <!-- Extras (teachers switch these on and off) -->
+    <aside class="stats-panel" id="stats-panel">
+      <section class="class-board" id="class-board" hidden>
+        <h2 data-i18n="ktTopClasses">Most krathongs</h2>
+        <ol id="class-list"></ol>
+      </section>
+      <div class="wish-counts" id="wish-counts" hidden></div>
+    </aside>
+    <canvas class="fireworks" id="fireworks" aria-hidden="true"></canvas>
+    <div class="milestone" id="milestone" hidden></div>
+    <button class="music-btn" type="button" id="music-btn" hidden data-i18n="ktMusicStart">Tap to play music</button>
+
     <div class="empty" id="empty" hidden>
       <p class="empty-big" data-i18n="ktEmptyLive">Be the first to float a krathong</p>
     </div>
@@ -61,6 +73,7 @@
   <script src="../js/common.js"></script>
   <script src="../js/data.js"></script>
   <script src="../js/krathong.js"></script>
+  <script src="../js/live-extras.js"></script>
   <script src="../js/live.js"></script>
 </body>
 </html>

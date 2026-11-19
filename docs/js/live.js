@@ -19,6 +19,9 @@
   const sprites = [];
   let W = 0, H = 0, horizonY = 0, baseW = 200;
 
+  // The krathong drawing, with a class flag when classes are switched on.
+  const svgFor = (k) => Krathong.svg(k.design, { animated: true, lang: getLang(), group: LiveExtras.groupFor(k) });
+
   /* ------------------------------------------------------------------ */
   /* Layout                                                            */
   /* ------------------------------------------------------------------ */
@@ -46,7 +49,7 @@
     el.className = 'kt-sprite';
     el.style.width = baseW + 'px';
     // No typed text on the river: the doll face and the wish ribbon are part of the drawing.
-    el.innerHTML = Krathong.svg(k.design, { animated: true, lang: getLang() });
+    el.innerHTML = svgFor(k);
     layer.appendChild(el);
 
     const depth = opts.depth ?? pickDepth();
@@ -253,9 +256,11 @@
   function updateCount() {
     $('count').textContent = t('ktLiveCount', pool.length);
     $('empty').hidden = pool.length > 0;
+    LiveExtras.renderStats(pool);
   }
 
   function addKrathongs(list, fresh) {
+    const before = pool.length;
     for (const k of list) {
       if (byId.has(k.id)) continue;
       byId.set(k.id, k);
@@ -265,6 +270,7 @@
       if (fresh) priority.push(k.id);
     }
     updateCount();
+    if (fresh) LiveExtras.milestone(before, pool.length);
     if (fresh) {
       // Let new arrivals in straight away, even if the river is full.
       while (priority.length && sprites.length < maxSprites() + 4) {
@@ -344,7 +350,7 @@
   onLangChange(() => {
     updateCount();
     // Redraw so the wish ribbons switch language too.
-    sprites.forEach((s) => { s.el.innerHTML = Krathong.svg(s.k.design, { animated: true, lang: getLang() }); });
+    sprites.forEach((s) => { s.el.innerHTML = svgFor(s.k); });
   });
 
   applyI18n();
@@ -358,6 +364,14 @@
     $('empty').querySelector('.empty-big').textContent = t('notConfigured');
     return;
   }
+
+  // Extras switched on or off by teachers: redraw flags and the counts when they change.
+  LiveExtras.start({
+    onChange: () => {
+      sprites.forEach((s) => { s.el.innerHTML = svgFor(s.k); });
+      updateCount();
+    },
+  });
 
   DB.listKrathongs({ limit: 500 })
     .then((list) => addKrathongs(list, false))

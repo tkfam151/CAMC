@@ -31,8 +31,41 @@
 
   /* --- Rendering ------------------------------------------------------ */
 
+  // Optional extras, switched on and off by teachers (loaded in checkOpen).
+  let features = { extraWishes: false, classes: false };
+  let classes = [];
+
+  /** The class flag for the krathong, when classes are switched on. */
+  function groupFor(d) {
+    if (!features.classes || !d.group) return null;
+    const g = classes.find((c) => c.id === d.group);
+    return g ? { id: g.id, color: g.color } : null;
+  }
+
   function renderPreview() {
-    $('kt-preview').innerHTML = Krathong.svg(design, { animated: true });
+    $('kt-preview').innerHTML = Krathong.svg(design, { animated: true, group: groupFor(design) });
+  }
+
+  function renderClassPicker() {
+    $('kt-class-panel').hidden = !features.classes;
+    if (!features.classes) return;
+    const sel = $('kt-class');
+    if (sel.options.length !== classes.length + 1) {
+      sel.innerHTML = '';
+      const first = document.createElement('option');
+      first.value = '';
+      first.textContent = t('ktPickClass');
+      sel.appendChild(first);
+      classes.forEach((c) => {
+        const o = document.createElement('option');
+        o.value = c.id;
+        o.textContent = c.name;
+        sel.appendChild(o);
+      });
+    } else {
+      sel.options[0].textContent = t('ktPickClass');
+    }
+    sel.value = design.group && classes.some((c) => c.id === design.group) ? design.group : '';
   }
 
   function optionCards(containerId, key, values) {
@@ -125,7 +158,7 @@
   function wishButtons() {
     const box = $('opt-wish');
     box.innerHTML = '';
-    Krathong.WISH_KEYS.forEach((v) => {
+    (features.extraWishes ? Krathong.WISH_KEYS : Krathong.BASIC_WISHES).forEach((v) => {
       const w = Krathong.WISHES[v];
       const b = document.createElement('button');
       b.type = 'button';
@@ -145,6 +178,9 @@
   }
 
   function render() {
+    // A wish that has been switched off can't be chosen.
+    if (!features.extraWishes && design.wish && !Krathong.BASIC_WISHES.includes(design.wish)) design.wish = Krathong.BASIC_WISHES[0];
+    renderClassPicker();
     renderPreview();
     renderControls();
   }
@@ -158,6 +194,12 @@
   /* --- Floating --------------------------------------------------------- */
 
   $('kt-name').addEventListener('input', () => { $('kt-error').textContent = ''; });
+  $('kt-class').addEventListener('change', (e) => {
+    $('kt-error').textContent = '';
+    design = { ...design, group: e.target.value || null };
+    saveDraft();
+    render();
+  });
 
   $('kt-random').addEventListener('click', () => {
     design = Krathong.random();
@@ -180,6 +222,11 @@
         $('kt-error').textContent = t('ktPickBoth');
         return;
       }
+      if (features.classes && !groupFor(design)) {
+        $('kt-error').textContent = t('ktNeedClass');
+        $('kt-class').focus();
+        return;
+      }
       const name = $('kt-name').value.trim();
       if (!name) {
         $('kt-error').textContent = t('ktNeedName');
@@ -187,13 +234,15 @@
         return;
       }
       // The name is kept for teachers only; it never appears on the river.
-      await DB.submitKrathong({ name, wish: '', design });
+      const sendDesign = { ...design };
+      if (!features.classes) delete sendDesign.group;
+      await DB.submitKrathong({ name, wish: '', design: sendDesign });
       // Lock the builder on this device so it can't go back and float another.
-      try { localStorage.setItem(SENT_KEY, JSON.stringify({ at: Date.now(), design })); } catch { /* ignore */ }
+      try { localStorage.setItem(SENT_KEY, JSON.stringify({ at: Date.now(), design, group: groupFor(design) })); } catch { /* ignore */ }
       // Float the preview away, then show the thank-you panel.
       $('kt-preview').classList.add('float-away');
       await new Promise((r) => setTimeout(r, 1600));
-      showDone(design);
+      showDone(design, groupFor(design));
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
       $('kt-error').textContent = err.status === 503 ? t('notConfigured') : err.message;
@@ -204,8 +253,8 @@
   });
 
   /** Show the thank-you panel. Once a krathong is floated, the builder stays closed on this device. */
-  function showDone(d) {
-    $('kt-done-art').innerHTML = Krathong.svg(d, { animated: true });
+  function showDone(d, group) {
+    $('kt-done-art').innerHTML = Krathong.svg(d, { animated: true, group });
     $('kt-builder').hidden = true;
     $('kt-hero').hidden = true;
     $('kt-done').hidden = false;
@@ -224,7 +273,7 @@
   // memory; check again so the builder never reappears after floating.
   window.addEventListener('pageshow', () => {
     const sent = alreadySent();
-    if (sent && $('kt-done').hidden) showDone(Krathong.normalize(sent.design));
+    if (sent && $('kt-done').hidden) showDone(Krathong.normalize(sent.design), sent.group);
   });
 
   /* --- Status ----------------------------------------------------------- */
@@ -237,6 +286,12 @@
     try {
       const s = await DB.krathongStatus();
       if (s && s.open === false) showClosed(t('ktClosed'));
+      if (s && s.features) features = s.features;
+      if (features.classes) {
+        const { groups } = await DB.listGroups();
+        classes = groups.filter((g) => g.kind === 'class');
+      }
+      render();
     } catch {
       /* the submit call reports any problem */
     }
@@ -253,7 +308,7 @@
   applyI18n();
   const sent = alreadySent();
   if (sent) {
-    showDone(Krathong.normalize(sent.design));
+    showDone(Krathong.normalize(sent.design), sent.group);
   } else {
     render();
     checkOpen();

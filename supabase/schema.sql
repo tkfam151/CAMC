@@ -524,15 +524,16 @@ returns jsonb language sql immutable set search_path = '' as $$
 $$;
 
 -- Returns a clean copy of a krathong design, or raises if anything is invalid.
+-- (stable, not immutable: it checks the class against camc_groups)
 create or replace function public.camc__clean_krathong_design(d jsonb)
-returns jsonb language plpgsql immutable set search_path = '' as $$
+returns jsonb language plpgsql stable set search_path = '' as $$
 declare
   v_candles int;
   v_incense int;
 begin
   if d is null or jsonb_typeof(d) <> 'object'
      or exists (select 1 from jsonb_object_keys(d) k
-                where k not in ('base', 'petal', 'flower', 'flowerColor', 'candles', 'incense', 'deco', 'avatar', 'wish')) then
+                where k not in ('base', 'petal', 'flower', 'flowerColor', 'candles', 'incense', 'deco', 'avatar', 'wish', 'group')) then
     raise exception 'Invalid krathong design.' using errcode = '22023';
   end if;
   if coalesce(d ->> 'base', '') not in ('leaf', 'bread', 'coconut', 'lotus')
@@ -543,7 +544,8 @@ begin
      or jsonb_typeof(d -> 'candles') <> 'number'
      or jsonb_typeof(d -> 'incense') <> 'number'
      or coalesce(d ->> 'avatar', 'boy') not in ('boy', 'girl')
-     or coalesce(d ->> 'wish', 'love') not in ('love', 'health', 'wealth', 'success', 'study') then
+     or coalesce(d ->> 'wish', 'love') not in ('love', 'health', 'wealth', 'success', 'study', 'family', 'friendship', 'apology')
+     or (d ? 'group' and not exists (select 1 from public.camc_groups g where g.id = d ->> 'group' and g.kind = 'class')) then
     raise exception 'Invalid krathong design.' using errcode = '22023';
   end if;
   v_candles := (d ->> 'candles')::numeric::int;
@@ -556,7 +558,8 @@ begin
     'flowerColor', lower(d ->> 'flowerColor'), 'candles', v_candles, 'incense', v_incense,
     'deco', d ->> 'deco')
     || case when d ? 'avatar' then jsonb_build_object('avatar', d ->> 'avatar') else '{}'::jsonb end
-    || case when d ? 'wish' then jsonb_build_object('wish', d ->> 'wish') else '{}'::jsonb end;
+    || case when d ? 'wish' then jsonb_build_object('wish', d ->> 'wish') else '{}'::jsonb end
+    || case when d ? 'group' then jsonb_build_object('group', d ->> 'group') else '{}'::jsonb end;
 end $$;
 
 -- "Ploy 9H" -> "Pl*****": first two characters, then one * per remaining character.
@@ -579,10 +582,40 @@ returns jsonb language sql stable security definer set search_path = '' as $$
 $$;
 
 -- Public: is the event accepting krathongs?
+-- Extras teachers can switch on and off in the teacher page (Loy Krathong tab).
+--   extraWishes  family, friendship and the apology to Phra Mae Khongkha
+--   wishCount    how many krathongs each wish has, on the big screen
+--   classes      students pick their class; flags and a class leaderboard on the river
+--   fireworks    fireworks on the big screen at every 100 krathongs
+--   music        soft Thai-style music on the big screen
+create or replace function public.camc__krathong_features()
+returns jsonb language sql stable set search_path = '' as $$
+  select '{"extraWishes":true,"wishCount":true,"classes":true,"fireworks":true,"music":true}'::jsonb
+         || coalesce((select value::jsonb from public.camc_settings where key = 'krathong_features'), '{}'::jsonb);
+$$;
+
 create or replace function public.camc_krathong_status()
 returns jsonb language sql stable security definer set search_path = '' as $$
-  select jsonb_build_object('open', coalesce((select value from public.camc_settings where key = 'krathong_open'), 'true') <> 'false');
+  select jsonb_build_object('open', coalesce((select value from public.camc_settings where key = 'krathong_open'), 'true') <> 'false',
+                            'features', public.camc__krathong_features());
 $$;
+
+create or replace function public.camc_set_krathong_features(p_token text, p_features jsonb)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare
+  v jsonb := public.camc__krathong_features();
+  k text;
+begin
+  perform public.camc__require(p_token, 'teacher', 'Only teachers can manage krathongs.');
+  foreach k in array array['extraWishes', 'wishCount', 'classes', 'fireworks', 'music'] loop
+    if jsonb_typeof(p_features -> k) = 'boolean' then
+      v := jsonb_set(v, array[k], p_features -> k);
+    end if;
+  end loop;
+  insert into public.camc_settings (key, value) values ('krathong_features', v::text)
+  on conflict (key) do update set value = excluded.value;
+  return public.camc_krathong_status();
+end $$;
 
 -- Public: float a krathong. Students pick a doll (boy or girl) and one of five
 -- wishes, and type their name. The name is only for teachers: it is never shown
@@ -601,6 +634,16 @@ begin
   end if;
   if not (v_design ? 'avatar') or not (v_design ? 'wish') then
     raise exception 'Please choose a doll and a wish.' using errcode = '22023';
+  end if;
+  if not (public.camc__krathong_features() ->> 'extraWishes')::boolean
+     and v_design ->> 'wish' in ('family', 'friendship', 'apology') then
+    raise exception 'Please choose one of the wishes shown.' using errcode = '22023';
+  end if;
+  if (public.camc__krathong_features() ->> 'classes')::boolean and not (v_design ? 'group') then
+    raise exception 'Please choose your class.' using errcode = '22023';
+  end if;
+  if not (public.camc__krathong_features() ->> 'classes')::boolean then
+    v_design := v_design - 'group';
   end if;
   if v_name = '' then
     raise exception 'Please type your name.' using errcode = '22023';
@@ -679,7 +722,8 @@ end $$;
 revoke execute on function
   public.camc__krathong_json(public.camc_krathongs),
   public.camc__clean_krathong_design(jsonb),
-  public.camc__mask_name(text)
+  public.camc__mask_name(text),
+  public.camc__krathong_features()
 from public, anon, authenticated;
 
 grant execute on function
@@ -690,7 +734,8 @@ grant execute on function
   public.camc_set_krathong_hidden(text, bigint, boolean),
   public.camc_delete_krathong(text, bigint),
   public.camc_clear_krathongs(text),
-  public.camc_set_krathong_open(text, boolean)
+  public.camc_set_krathong_open(text, boolean),
+  public.camc_set_krathong_features(text, jsonb)
 to anon, authenticated;
 
 /* ================================================================== */

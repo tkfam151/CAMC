@@ -252,10 +252,52 @@
       const [list, status] = await Promise.all([DB.listAllKrathongs(), DB.krathongStatus()]);
       krathongs = list;
       $('kt-open').checked = !!(status && status.open);
+      ktFeatures = (status && status.features) || {};
+      const { groups } = await DB.listGroups();
+      ktGroups = groups;
+      renderFeatures();
       renderKrathongs();
     } catch (err) {
       toast(err.message, 'error');
     }
+  }
+
+  let ktFeatures = {};
+  let ktGroups = [];
+  const FEATURES = [
+    ['extraWishes', 'ftExtraWishes'],
+    ['wishCount', 'ftWishCount'],
+    ['classes', 'ftClasses'],
+    ['fireworks', 'ftFireworks'],
+    ['music', 'ftMusic'],
+  ];
+
+  // On/off switches for the Loy Krathong extras.
+  function renderFeatures() {
+    const box = $('kt-feature-list');
+    box.innerHTML = '';
+    FEATURES.forEach(([key, label]) => {
+      const input = document.createElement('input');
+      input.type = 'checkbox';
+      input.setAttribute('role', 'switch');
+      input.checked = !!ktFeatures[key];
+      input.addEventListener('change', async () => {
+        try {
+          const status = await DB.setKrathongFeatures({ [key]: input.checked });
+          ktFeatures = status.features;
+          toast(t('saved'));
+        } catch (err) {
+          input.checked = !input.checked;
+          toast(err.message, 'error');
+        }
+      });
+      const span = document.createElement('span');
+      span.textContent = t(label);
+      const row = document.createElement('label');
+      row.className = 'switch';
+      row.append(input, span);
+      box.appendChild(row);
+    });
   }
 
   function renderKrathongs() {
@@ -270,7 +312,8 @@
       card.className = 'kt-card' + (k.hidden ? ' is-hidden' : '');
       const art = document.createElement('div');
       art.className = 'kt-card-art';
-      art.innerHTML = Krathong.svg(k.design, { lang: window.CAMC.getLang() });
+      const g = k.design && k.design.group ? ktGroups.find((x) => x.id === k.design.group) : null;
+      art.innerHTML = Krathong.svg(k.design, { lang: window.CAMC.getLang(), group: g ? { id: g.id, color: g.color } : null });
       const name = document.createElement('div');
       name.className = 'kt-card-name';
       // The student's name is only shown here, to teachers.
@@ -280,7 +323,7 @@
       wish.textContent = k.design && k.design.wish ? Krathong.wishLabel(k.design.wish, window.CAMC.getLang()) : k.wish;
       const meta = document.createElement('div');
       meta.className = 'kt-card-meta';
-      meta.textContent = formatDate(k.createdAt, true);
+      meta.textContent = [k.design && k.design.group, formatDate(k.createdAt, true)].filter(Boolean).join(' · ');
       if (k.hidden) {
         const b = document.createElement('span');
         b.className = 'badge';
@@ -1092,7 +1135,7 @@
     if (!$('view-editor').hidden) { populateClassSelects(); renderEditor(); }
     if (!$('view-admin').hidden) loadTeachers();
     if (!$('view-groups').hidden) renderGroups();
-    if (!$('view-krathongs').hidden) renderKrathongs();
+    if (!$('view-krathongs').hidden) { renderFeatures(); renderKrathongs(); }
   });
 
   /* ================================================================ */

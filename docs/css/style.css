@@ -639,3 +639,5 @@ a:hover { text-decoration: underline; }
 .kt-wish-option[aria-checked="true"] { border-color: var(--wish); background: color-mix(in srgb, var(--wish) 14%, var(--surface)); }
 .kt-wish-icon { font-size: 30px; line-height: 1; }
 @media (max-width: 734px) { .kt-avatars { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.kt-features { margin-bottom: 20px; }
+.kt-feature-list { display: flex; flex-direction: column; gap: 12px; }

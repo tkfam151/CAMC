@@ -20,8 +20,13 @@
     wealth: { icon: '💰', color: '#c9a227', th: 'การเงิน', en: 'Wealth' },
     success: { icon: '🏆', color: '#ff9500', th: 'ความสำเร็จ', en: 'Success' },
     study: { icon: '📚', color: '#007aff', th: 'การเรียน', en: 'Study' },
+    // Extra wishes (teachers can switch these on or off)
+    family: { icon: '👨‍👩‍👧', color: '#af52de', th: 'ครอบครัว', en: 'Family', extra: true },
+    friendship: { icon: '🤝', color: '#00a6a6', th: 'มิตรภาพ', en: 'Friendship', extra: true },
+    apology: { icon: '🙏', color: '#5e5ce6', th: 'ขอขมาพระแม่คงคา', en: 'Apology to the river', extra: true },
   };
   const WISH_KEYS = Object.keys(WISHES);
+  const BASIC_WISHES = WISH_KEYS.filter((k) => !WISHES[k].extra);
 
   const DEFAULT = { base: 'leaf', petal: '#2e7d32', flower: 'marigold', flowerColor: '#ff9f0a', candles: 1, incense: 2, deco: 'pearls' };
 
@@ -39,6 +44,7 @@
       deco: DECOS.includes(d.deco) ? d.deco : DEFAULT.deco,
       avatar: DRAWABLE_AVATARS.includes(d.avatar) ? d.avatar : null,
       wish: WISH_KEYS.includes(d.wish) ? d.wish : null,
+      group: typeof d.group === 'string' && d.group.length <= 40 ? d.group : null,
     };
   }
 
@@ -47,7 +53,7 @@
     return {
       base: pick(BASES), petal: pick(PETAL_COLORS), flower: pick(FLOWERS), flowerColor: pick(FLOWER_COLORS),
       candles: 1 + Math.floor(Math.random() * 3), incense: Math.floor(Math.random() * 4), deco: pick(DECOS),
-      avatar: pick(AVATARS), wish: pick(WISH_KEYS),
+      avatar: pick(AVATARS), wish: pick(BASIC_WISHES),
     };
   }
 
@@ -269,14 +275,41 @@
     return w ? `${w.icon} ${lang === 'en' ? w.en : w.th}` : '';
   }
 
+  const escapeXml = (v) => String(v).replace(/[<>&"']/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  // Rough on-screen width of a label (Thai vowel and tone marks take no extra space).
+  const labelWidth = (text, perChar) => Array.from(text.replace(/[\u0E31\u0E34-\u0E3A\u0E47-\u0E4E]/g, '')).length * perChar;
+
   function wishRibbon(key, lang) {
     const w = WISHES[key];
     if (!w) return '';
+    const width = Math.max(104, Math.min(210, 26 + labelWidth(wishLabel(key, lang), 7.4)));
     // Text comes from the fixed WISHES list, never from what someone typed.
     return `<g class="kt-wish">` +
-      `<rect x="68" y="170" width="104" height="20" rx="10" fill="${w.color}" stroke="#fff" stroke-width="1.5"/>` +
+      `<rect x="${120 - width / 2}" y="170" width="${width}" height="20" rx="10" fill="${w.color}" stroke="#fff" stroke-width="1.5"/>` +
       `<text x="120" y="184.5" text-anchor="middle" font-size="11.5" font-weight="700" fill="#fff" ` +
       `font-family="-apple-system, BlinkMacSystemFont, 'Noto Sans Thai', 'Segoe UI', sans-serif">${wishLabel(key, lang)}</text></g>`;
+  }
+
+  /* --- class flag ------------------------------------------------------------- */
+
+  function classFlag(group) {
+    if (!group || !group.id) return '';
+    const text = Array.from(String(group.id)).slice(0, 8).join('');
+    const color = /^#[0-9a-fA-F]{6}$/.test(group.color || '') ? group.color : '#0071e3';
+    const w = Math.max(30, Math.min(64, 14 + labelWidth(text, 6.6)));
+    const x = Math.min(184, 236 - w), top = 66; // keep long class names inside the drawing
+    return `<g class="kt-flag">` +
+      `<line x1="${x}" y1="${top}" x2="${x}" y2="148" stroke="#8d5a3b" stroke-width="2.4" stroke-linecap="round"/>` +
+      `<path d="M${x} ${top + 1} L${x + w} ${top + 1} L${x + w - 7} ${top + 10} L${x + w} ${top + 19} L${x} ${top + 19} Z" fill="${color}" stroke="#fff" stroke-width="1.2"/>` +
+      `<text x="${x + (w - 7) / 2 + 1}" y="${top + 14}" text-anchor="middle" font-size="10" font-weight="800" fill="${textOnColor(color)}" ` +
+      `font-family="-apple-system, BlinkMacSystemFont, 'Noto Sans Thai', 'Segoe UI', sans-serif">${escapeXml(text)}</text></g>`;
+  }
+
+  function textOnColor(hex) {
+    const n = parseInt(hex.slice(1), 16);
+    const lum = (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
+    return lum > 0.68 ? '#1d1d1f' : '#ffffff';
   }
 
   /**
@@ -296,11 +329,11 @@
     const title = opts.title ? `<title>${String(opts.title).replace(/[<>&"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]))}</title>` : '';
     return (
       `<svg class="krathong-svg" viewBox="0 20 240 172" xmlns="http://www.w3.org/2000/svg" role="img">${title}${defs}` +
-      base(d) + backPetals(d) + mound(d) + candlesAndIncense(d, id, !!opts.animated) + flowers(d) + avatar(d.avatar) + frontPetals(d) + deco(d) +
+      base(d) + backPetals(d) + classFlag(opts.group) + mound(d) + candlesAndIncense(d, id, !!opts.animated) + flowers(d) + avatar(d.avatar) + frontPetals(d) + deco(d) +
       (opts.noWish ? '' : wishRibbon(d.wish, opts.lang || (window.CAMC && window.CAMC.getLang ? window.CAMC.getLang() : 'th'))) +
       `</svg>`
     );
   }
 
-  window.Krathong = { svg, normalize, random, wishLabel, avatarSvg: avatar, DEFAULT, BASES, FLOWERS, DECOS, PETAL_COLORS, FLOWER_COLORS, AVATARS, WISHES, WISH_KEYS };
+  window.Krathong = { svg, normalize, random, wishLabel, avatarSvg: avatar, DEFAULT, BASES, FLOWERS, DECOS, PETAL_COLORS, FLOWER_COLORS, AVATARS, WISHES, WISH_KEYS, BASIC_WISHES };
 })();
