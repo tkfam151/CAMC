@@ -322,7 +322,24 @@
       if (on) playSong();
     }
 
+    // The school's song: docs/audio.mp3 on the website. If it isn't there,
+    // the built-in tune plays instead.
+    const SONG_URL = '../audio.mp3';
+    let songChecked = false;
+    async function loadSchoolSong() {
+      if (songChecked) return;
+      songChecked = true;
+      try {
+        const r = await fetch(SONG_URL, { method: 'HEAD', cache: 'no-store' });
+        if (!r.ok || song) return;
+        song = new Audio(SONG_URL);
+        song.loop = true;
+        song.volume = 0.8;
+      } catch { /* no song file: use the built-in tune */ }
+    }
+
     async function start() {
+      await loadSchoolSong();
       if (song) {
         on = true;
         if (song.paused) playSong();
