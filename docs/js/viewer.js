@@ -175,58 +175,6 @@
       });
 
     renderVipList(vips);
-    renderFinder(counts, order);
-  }
-
-  // The big "See where your class sits" picker and the plain-language answer.
-  function renderFinder(counts, order) {
-    const sel = $('my-class');
-    const ids = Object.keys(counts).filter((id) => id !== '?' && !counts[id].vip)
-      .sort((a, b) => (order.indexOf(a) + 1 || 999) - (order.indexOf(b) + 1 || 999));
-    sel.innerHTML = '';
-    const first = document.createElement('option');
-    first.value = '';
-    first.textContent = t('pickYourClass');
-    sel.appendChild(first);
-    ids.forEach((id) => {
-      const o = document.createElement('option');
-      o.value = id;
-      o.textContent = counts[id].name;
-      sel.appendChild(o);
-    });
-    sel.value = activeChip && ids.includes(activeChip) ? activeChip : '';
-    $('class-finder').hidden = ids.length === 0;
-
-    const out = $('cf-result');
-    out.innerHTML = '';
-    if (!sel.value) return;
-    const info = Hall.classSeats(current, sel.value);
-    const head = document.createElement('div');
-    head.className = 'cf-head';
-    const dot = document.createElement('span');
-    dot.className = 'dot';
-    dot.style.background = counts[sel.value].color;
-    head.append(dot, document.createTextNode(`${counts[sel.value].name} · ${t('seatsN', info.count)}`));
-    out.appendChild(head);
-    const list = document.createElement('div');
-    list.className = 'cf-rows';
-    info.rows.forEach(({ row, ranges }) => {
-      const r = document.createElement('span');
-      r.className = 'cf-row';
-      const b = document.createElement('b');
-      b.textContent = `${t('rowWord')} ${row}`;
-      r.append(b, document.createTextNode(` ${ranges}`));
-      list.appendChild(r);
-    });
-    if (info.extra.length) {
-      const r = document.createElement('span');
-      r.className = 'cf-row';
-      const b = document.createElement('b');
-      b.textContent = t('extraSeatsShort');
-      r.append(b, document.createTextNode(` ${info.extra.join(', ')}`));
-      list.appendChild(r);
-    }
-    out.appendChild(list);
   }
 
   function pickClass(id, scroll) {
@@ -235,7 +183,6 @@
     $('seat-search').value = '';
     renderLegend();
     runSearch(false);
-    if (scroll && id) $('hall-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   function renderVipList(vips) {
@@ -307,7 +254,6 @@
     runSearch(true);
   }, 150));
   $('seat-search-clear').addEventListener('click', () => { $('seat-search').value = ''; activeChip = null; renderLegend(); runSearch(false); });
-  $('my-class').addEventListener('change', (e) => pickClass(e.target.value, true));
   $('back-link').addEventListener('click', (e) => { e.preventDefault(); navigate(location.pathname); });
 
   function applyLabels() {

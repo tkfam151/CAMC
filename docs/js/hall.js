@@ -372,38 +372,6 @@
   }
 
   /**
-   * Where a class sits, as rows of seat-number ranges:
-   * [{ row: 'A', ranges: '1–7, 9' }, ...] plus any extra seats by name.
-   */
-  function classSeats(layoutIn, classId) {
-    const layout = normalize(layoutIn);
-    const rows = {};
-    const extra = [];
-    Object.entries(layout.seatData).forEach(([id, d]) => {
-      if (!d || d.classId !== classId) return;
-      const m = id.match(/^([A-P])(\d+)$/);
-      if (m) (rows[m[1]] = rows[m[1]] || []).push(Number(m[2]));
-      else extra.push(id);
-    });
-    const ranges = (nums) => {
-      nums.sort((a, b) => a - b);
-      const out = [];
-      for (let i = 0; i < nums.length; i++) {
-        let j = i;
-        while (j + 1 < nums.length && nums[j + 1] === nums[j] + 1) j++;
-        out.push(i === j ? String(nums[i]) : `${nums[i]}–${nums[j]}`);
-        i = j;
-      }
-      return out.join(', ');
-    };
-    return {
-      count: Object.values(rows).reduce((n, r) => n + r.length, 0) + extra.length,
-      rows: ROWS.filter((r) => rows[r]).map((r) => ({ row: r, ranges: ranges(rows[r]) })),
-      extra: extra.sort(),
-    };
-  }
-
-  /**
    * Choose a seat size so the hall fits the card's width. Returns the size used.
    * `card` is the scrolling container that holds the rendered hall.
    */
@@ -427,6 +395,6 @@
   window.Hall = {
     setGroups, getGroups, seatInfo, ROWS, TOTAL_COLS, LEFT_COLS, CENTER_COLS, RIGHT_COLS,
     isBooth, emptyLayout, normalize, mainSeatIds, dynamicSeatIds, allSeatIds, stats,
-    classById, render, highlight, highlightClass, classSeats, hidePop, textOn, fit,
+    classById, render, highlight, highlightClass, hidePop, textOn, fit,
   };
 })();

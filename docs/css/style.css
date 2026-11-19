@@ -648,14 +648,3 @@ a:hover { text-decoration: underline; }
 .kt-countdown-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); font-size: 14px; }
 .kt-countdown-row .input { width: auto; }
 
-/* "See where your class sits" — the first thing on an event page */
-.class-finder { background: var(--surface); border-radius: var(--radius-lg); box-shadow: var(--shadow-card); padding: 20px 24px; margin-bottom: 20px; border: 2px solid var(--accent-soft); }
-.cf-title { display: block; font-size: 21px; font-weight: 700; margin-bottom: 12px; }
-.cf-select { height: 56px; font-size: 19px; font-weight: 600; max-width: 520px; }
-.cf-result:empty { display: none; }
-.cf-result { margin-top: 14px; }
-.cf-head { display: flex; align-items: center; gap: 10px; font-size: 19px; font-weight: 700; }
-.cf-head .dot { width: 14px; height: 14px; }
-.cf-rows { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
-.cf-row { padding: 6px 12px; border-radius: 10px; background: var(--surface-2); font-size: 17px; font-variant-numeric: tabular-nums; }
-@media print { .class-finder { box-shadow: none; border: 1px solid #ccc; } .cf-select { display: none; } }
