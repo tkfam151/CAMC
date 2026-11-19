@@ -6,7 +6,7 @@
 
   let events = [];
   let current = null; // full event
-  let showClasses = false;
+  let labelMode = 'both'; // 'num' | 'cls' | 'both' (seat number above the class)
   let activeChip = null;
   let userZoom = false;
 
@@ -130,7 +130,7 @@
 
     renderLegend();
     Hall.render($('hall'), current, { editable: false, t });
-    $('hall').classList.toggle('show-classes', showClasses);
+    applyLabels();
     autoFit();
     runSearch(false);
   }
@@ -181,7 +181,8 @@
   function renderVipList(vips) {
     const list = $('vip-list');
     list.innerHTML = '';
-    $('vip-section').hidden = vips.length === 0;
+    // Only shown when a teacher has switched it on for this event.
+    $('vip-section').hidden = vips.length === 0 || !current.showVipList;
     const named = vips.filter((v) => v.personName);
     const show = named.length ? named : vips;
     show
@@ -247,14 +248,20 @@
   $('seat-search-clear').addEventListener('click', () => { $('seat-search').value = ''; activeChip = null; renderLegend(); runSearch(false); });
   $('back-link').addEventListener('click', (e) => { e.preventDefault(); navigate(location.pathname); });
 
-  function setLabels(classes) {
-    showClasses = classes;
-    $('lbl-num').setAttribute('aria-pressed', String(!classes));
-    $('lbl-cls').setAttribute('aria-pressed', String(classes));
-    $('hall').classList.toggle('show-classes', classes);
+  function applyLabels() {
+    $('lbl-num').setAttribute('aria-pressed', String(labelMode === 'num'));
+    $('lbl-cls').setAttribute('aria-pressed', String(labelMode === 'cls'));
+    $('lbl-both').setAttribute('aria-pressed', String(labelMode === 'both'));
+    $('hall').classList.toggle('show-classes', labelMode === 'cls');
+    $('hall').classList.toggle('show-both', labelMode === 'both');
   }
-  $('lbl-num').addEventListener('click', () => setLabels(false));
-  $('lbl-cls').addEventListener('click', () => setLabels(true));
+  function setLabels(mode) {
+    labelMode = mode;
+    applyLabels();
+  }
+  $('lbl-num').addEventListener('click', () => setLabels('num'));
+  $('lbl-cls').addEventListener('click', () => setLabels('cls'));
+  $('lbl-both').addEventListener('click', () => setLabels('both'));
   $('zoom').addEventListener('input', (e) => {
     userZoom = true;
     $('hall-card').style.setProperty('--seat', e.target.value + 'px');

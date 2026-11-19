@@ -215,8 +215,9 @@
           <input id="ed-search" type="search" autocomplete="off" data-i18n-placeholder="findInChart" data-i18n-aria="findInChart">
         </div>
         <div class="segmented" role="group">
-          <button type="button" id="ed-lbl-num" aria-pressed="true" data-i18n="labelsNumbers">Numbers</button>
+          <button type="button" id="ed-lbl-num" aria-pressed="false" data-i18n="labelsNumbers">Numbers</button>
           <button type="button" id="ed-lbl-cls" aria-pressed="false" data-i18n="labelsClasses">Classes</button>
+          <button type="button" id="ed-lbl-both" aria-pressed="true" data-i18n="labelsBoth">Number + Class</button>
         </div>
         <button class="btn btn-secondary btn-sm" type="button" id="ed-undo" disabled>
           <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>
@@ -290,6 +291,7 @@
           <h3 data-i18n="eventSettings">Event</h3>
           <div class="stack" style="margin-top:12px">
             <div class="field"><label for="ed-date" data-i18n="eventDate">Date</label><input class="input input-sm" id="ed-date" type="date"></div>
+            <label class="switch"><input type="checkbox" role="switch" id="ed-show-vip"> <span data-i18n="showVipList">Show the VIP Guests list on the public page</span></label>
             <div class="list-actions">
               <a class="btn btn-ghost" id="ed-public" href="../" target="_blank" rel="noopener">
                 <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>

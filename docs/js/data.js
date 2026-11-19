@@ -80,6 +80,8 @@
       extraSeatList: ids(input && input.extraSeatList, /^EX\d{1,4}$/),
       balconySeatList: { L: ids(bal.L, /^LBAL\d{1,4}$/), R: ids(bal.R, /^RBAL\d{1,4}$/) },
       walkwaySeatList: ids(input && input.walkwaySeatList, /^W[12]-([1-9]|1\d|2\d)$/),
+      // Teachers choose whether the public page lists VIP guests (off unless switched on).
+      showVipList: !!(input && input.showVipList === true),
     };
   }
 
@@ -93,6 +95,7 @@
       extraSeatList: layout.extraSeatList || [],
       balconySeatList: layout.balconySeatList || { L: [], R: [] },
       walkwaySeatList: layout.walkwaySeatList || [],
+      showVipList: layout.showVipList === true,
       createdAt: r.created_at,
       createdBy: r.created_by,
       updatedAt: r.updated_at,

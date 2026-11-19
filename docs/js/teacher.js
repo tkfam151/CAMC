@@ -13,7 +13,7 @@
   let undoStack = [];
   let dirty = false;
   let saving = false;
-  let showClasses = false;
+  let labelMode = 'both'; // 'num' | 'cls' | 'both' (seat number above the class)
   let editingSeat = null;
   let tempPhoto = null;
   let userZoom = false;
@@ -745,7 +745,8 @@
       const [{ event }] = await Promise.all([DB.getEvent(id), loadGroups()]);
       ev = { id: event.id, name: event.name, date: event.date || '' };
       layout = Hall.normalize(JSON.parse(JSON.stringify(event)));
-      layout = { seatData: layout.seatData, extraSeatList: layout.extraSeatList, balconySeatList: layout.balconySeatList, walkwaySeatList: layout.walkwaySeatList };
+      layout = { seatData: layout.seatData, extraSeatList: layout.extraSeatList, balconySeatList: layout.balconySeatList, walkwaySeatList: layout.walkwaySeatList, showVipList: event.showVipList === true };
+      $('ed-show-vip').checked = layout.showVipList;
       undoStack = [];
       dirty = false;
       $('ed-name').value = ev.name;
@@ -826,7 +827,8 @@
       onSwap: swapSeats,
       onAdd: addSeat,
     });
-    $('ed-hall').classList.toggle('show-classes', showClasses);
+    applyLabels();
+    $('ed-show-vip').checked = !!layout.showVipList; // also right after Undo
     const before = window.scrollY;
     Hall.highlight($('ed-hall'), layout, $('ed-search').value);
     window.scrollTo(0, before);
@@ -1124,6 +1126,10 @@
   $('ed-name').addEventListener('input', markDirty);
   $('ed-name').addEventListener('keydown', (e) => { if (e.key === 'Enter') e.target.blur(); });
   $('ed-date').addEventListener('change', markDirty);
+  $('ed-show-vip').addEventListener('change', (e) => {
+    snapshot();
+    layout.showVipList = e.target.checked;
+  });
   $('ed-search').addEventListener('input', debounce(() => { renderLegend(); Hall.highlight($('ed-hall'), layout, $('ed-search').value); }, 150));
   $('ed-zoom').addEventListener('input', (e) => {
     userZoom = true;
@@ -1131,14 +1137,20 @@
   });
   window.addEventListener('resize', debounce(autoFit, 150));
 
-  function setLabels(classes) {
-    showClasses = classes;
-    $('ed-lbl-num').setAttribute('aria-pressed', String(!classes));
-    $('ed-lbl-cls').setAttribute('aria-pressed', String(classes));
-    $('ed-hall').classList.toggle('show-classes', classes);
+  function applyLabels() {
+    $('ed-lbl-num').setAttribute('aria-pressed', String(labelMode === 'num'));
+    $('ed-lbl-cls').setAttribute('aria-pressed', String(labelMode === 'cls'));
+    $('ed-lbl-both').setAttribute('aria-pressed', String(labelMode === 'both'));
+    $('ed-hall').classList.toggle('show-classes', labelMode === 'cls');
+    $('ed-hall').classList.toggle('show-both', labelMode === 'both');
   }
-  $('ed-lbl-num').addEventListener('click', () => setLabels(false));
-  $('ed-lbl-cls').addEventListener('click', () => setLabels(true));
+  function setLabels(mode) {
+    labelMode = mode;
+    applyLabels();
+  }
+  $('ed-lbl-num').addEventListener('click', () => setLabels('num'));
+  $('ed-lbl-cls').addEventListener('click', () => setLabels('cls'));
+  $('ed-lbl-both').addEventListener('click', () => setLabels('both'));
 
   $('ed-clear').addEventListener('click', () => {
     if (!confirm(t('confirmClear'))) return;
@@ -1182,7 +1194,7 @@
         if (!data || typeof data.seatData !== 'object') throw new Error('bad');
         snapshot();
         const n = Hall.normalize(data);
-        layout = { seatData: n.seatData, extraSeatList: n.extraSeatList, balconySeatList: n.balconySeatList, walkwaySeatList: n.walkwaySeatList };
+        layout = { seatData: n.seatData, extraSeatList: n.extraSeatList, balconySeatList: n.balconySeatList, walkwaySeatList: n.walkwaySeatList, showVipList: layout.showVipList };
         renderEditor();
         toast(t('importDone', data.eventName || file.name));
       } catch {
