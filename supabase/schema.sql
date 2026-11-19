@@ -508,8 +508,11 @@ create index if not exists camc_krathongs_client_ip_idx on public.camc_krathongs
 
 alter table public.camc_krathongs enable row level security;
 revoke all on public.camc_krathongs from anon, authenticated;
--- Column-level grant: client_ip is deliberately left out.
-grant select (id, name, wish, design, hidden, created_at) on public.camc_krathongs to anon, authenticated;
+-- Column-level grant: name, wish and client_ip are deliberately left out, so
+-- the public can't read full names or wishes. The live river gets masked
+-- names from camc_public_krathongs instead.
+revoke select (name, wish, client_ip) on public.camc_krathongs from anon, authenticated;
+grant select (id, design, hidden, created_at) on public.camc_krathongs to anon, authenticated;
 drop policy if exists "Anyone can see visible krathongs" on public.camc_krathongs;
 create policy "Anyone can see visible krathongs" on public.camc_krathongs
   for select to anon, authenticated using (not hidden);
@@ -551,6 +554,26 @@ begin
     'flowerColor', lower(d ->> 'flowerColor'), 'candles', v_candles, 'incense', v_incense,
     'deco', d ->> 'deco');
 end $$;
+
+-- "Ploy 9H" -> "Pl*****": first two characters, then one * per remaining character.
+create or replace function public.camc__mask_name(p text)
+returns text language sql immutable set search_path = '' as $$
+  select case when length(btrim(coalesce(p, ''))) <= 2 then btrim(coalesce(p, ''))
+              else left(btrim(p), 2) || repeat('*', length(btrim(p)) - 2) end;
+$$;
+
+-- Public: visible krathongs for the live river, with masked names and no wishes.
+-- With p_since, only newer ones (oldest first); without it, the newest p_limit.
+create or replace function public.camc_public_krathongs(p_since timestamptz default null, p_limit integer default 500)
+returns jsonb language sql stable security definer set search_path = '' as $$
+  select coalesce(jsonb_agg(jsonb_build_object('id', k.id, 'name', public.camc__mask_name(k.name),
+                                               'design', k.design, 'createdAt', k.created_at)
+                            order by k.created_at), '[]'::jsonb)
+  from (select * from public.camc_krathongs
+        where not hidden and (p_since is null or created_at > p_since)
+        order by case when p_since is null then created_at end desc, created_at
+        limit greatest(1, least(coalesce(p_limit, 500), 1000))) k;
+$$;
 
 -- Public: is the event accepting krathongs?
 create or replace function public.camc_krathong_status()
@@ -647,11 +670,13 @@ end $$;
 
 revoke execute on function
   public.camc__krathong_json(public.camc_krathongs),
-  public.camc__clean_krathong_design(jsonb)
+  public.camc__clean_krathong_design(jsonb),
+  public.camc__mask_name(text)
 from public, anon, authenticated;
 
 grant execute on function
   public.camc_krathong_status(),
+  public.camc_public_krathongs(timestamptz, integer),
   public.camc_submit_krathong(text, text, jsonb),
   public.camc_list_krathongs(text),
   public.camc_set_krathong_hidden(text, bigint, boolean),

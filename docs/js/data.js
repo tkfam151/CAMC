@@ -185,19 +185,16 @@
 
   /* --- Loy Krathong ------------------------------------------------------ */
 
-  const KRATHONG_COLUMNS = 'id, name, wish, design, created_at';
   const toKrathong = (r) => ({ id: Number(r.id), name: r.name, wish: r.wish, design: r.design, createdAt: r.created_at || r.createdAt, hidden: !!r.hidden });
 
-  /** Visible krathongs, oldest first. `since` (ISO time) returns only newer ones. */
+  /**
+   * Visible krathongs for the live river, oldest first. Names come back masked
+   * ("Pl*****") and wishes are never sent to the public. `since` (ISO time)
+   * returns only newer ones.
+   */
   async function listKrathongs({ since, limit = 500 } = {}) {
-    const rows = await run(() => {
-      let q = sb.from('camc_krathongs').select(KRATHONG_COLUMNS);
-      if (since) q = q.gt('created_at', since).order('created_at', { ascending: true });
-      else q = q.order('created_at', { ascending: false });
-      return q.limit(limit);
-    });
-    const list = rows.map(toKrathong);
-    return since ? list : list.reverse();
+    const rows = await rpc('camc_public_krathongs', { p_since: since || null, p_limit: limit });
+    return (rows || []).map(toKrathong);
   }
 
   /** IDs of every visible krathong (used to drop ones a teacher has hidden). */

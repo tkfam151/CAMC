@@ -6,6 +6,8 @@
 
   let design = Krathong.random();
   const DRAFT_KEY = 'camc_krathong_draft';
+  const SENT_KEY = 'camc_krathong_sent';
+  const SENT_LOCK_MS = 12 * 60 * 60 * 1000; // one krathong per device for 12 hours
   try {
     const saved = JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null');
     if (saved) design = Krathong.normalize(saved);
@@ -125,12 +127,12 @@
     btn.textContent = t('ktFloating');
     try {
       await DB.submitKrathong({ name: $('kt-name').value.trim(), wish: $('kt-wish').value.trim(), design });
+      // Lock the builder on this device so it can't go back and float another.
+      try { localStorage.setItem(SENT_KEY, JSON.stringify({ at: Date.now(), design })); } catch { /* ignore */ }
       // Float the preview away, then show the thank-you panel.
       $('kt-preview').classList.add('float-away');
       await new Promise((r) => setTimeout(r, 1600));
-      $('kt-done-art').innerHTML = Krathong.svg(design, { animated: true });
-      $('kt-builder').hidden = true;
-      $('kt-done').hidden = false;
+      showDone(design);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
       $('kt-error').textContent = err.status === 503 ? t('notConfigured') : err.message;
@@ -140,16 +142,28 @@
     }
   });
 
-  $('kt-again').addEventListener('click', () => {
-    $('kt-wish').value = '';
-    updateCounter();
-    $('kt-preview').classList.remove('float-away');
-    design = Krathong.random();
-    saveDraft();
-    render();
-    $('kt-done').hidden = true;
-    $('kt-builder').hidden = false;
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+  /** Show the thank-you panel. Once a krathong is floated, the builder stays closed on this device. */
+  function showDone(d) {
+    $('kt-done-art').innerHTML = Krathong.svg(d, { animated: true });
+    $('kt-builder').hidden = true;
+    $('kt-hero').hidden = true;
+    $('kt-done').hidden = false;
+  }
+
+  function alreadySent() {
+    try {
+      const sent = JSON.parse(localStorage.getItem(SENT_KEY) || 'null');
+      if (sent && Date.now() - sent.at < SENT_LOCK_MS) return sent;
+      localStorage.removeItem(SENT_KEY);
+    } catch { /* storage unavailable */ }
+    return null;
+  }
+
+  // Coming back with the browser's Back button can restore the old page from
+  // memory; check again so the builder never reappears after floating.
+  window.addEventListener('pageshow', () => {
+    const sent = alreadySent();
+    if (sent && $('kt-done').hidden) showDone(Krathong.normalize(sent.design));
   });
 
   /* --- Status ----------------------------------------------------------- */
@@ -176,7 +190,12 @@
 
   onLangChange(() => { render(); $('kt-submit').textContent = t('ktFloat'); });
   applyI18n();
-  render();
-  updateCounter();
-  checkOpen();
+  const sent = alreadySent();
+  if (sent) {
+    showDone(Krathong.normalize(sent.design));
+  } else {
+    render();
+    updateCounter();
+    checkOpen();
+  }
 })();

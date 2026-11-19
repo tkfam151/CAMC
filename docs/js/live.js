@@ -19,8 +19,17 @@
   const sprites = [];
   let W = 0, H = 0, horizonY = 0, baseW = 200;
 
+  // Keeps the first 2 characters and replaces the rest with '*'
+  function maskName(rawName) {
+    const clean = (rawName || '').trim();
+    if (!clean) return '';
+    const chars = Array.from(clean); // safe for Thai characters & emojis
+    if (chars.length <= 2) return clean;
+    return chars.slice(0, 2).join('') + '*'.repeat(chars.length - 2);
+  }
+
   /* ------------------------------------------------------------------ */
-  /* Layout                                                              */
+  /* Layout                                                            */
   /* ------------------------------------------------------------------ */
 
   function measure() {
@@ -50,14 +59,8 @@
     label.className = 'kt-label';
     const n = document.createElement('span');
     n.className = 'n';
-    n.textContent = k.name || t('ktFriend');
+    n.textContent = maskName(k.name) || t('ktFriend');
     label.appendChild(n);
-    if (k.wish) {
-      const w = document.createElement('span');
-      w.className = 'w';
-      w.textContent = k.wish;
-      label.appendChild(w);
-    }
     el.appendChild(label);
     layer.appendChild(el);
 
@@ -275,7 +278,7 @@
       if (!lastCreatedAt || k.createdAt > lastCreatedAt) lastCreatedAt = k.createdAt;
       if (fresh) {
         priority.push(k.id);
-        toast(t('ktNew', k.name || t('ktFriend')));
+        toast(t('ktNew', maskName(k.name) || t('ktFriend')));
       }
     }
     updateCount();
@@ -367,7 +370,7 @@
   window.addEventListener('resize', () => measure());
   onLangChange(() => {
     updateCount();
-    sprites.forEach((s) => { if (!s.k.name) s.el.querySelector('.kt-label .n').textContent = t('ktFriend'); });
+    sprites.forEach((s) => { if (!maskName(s.k.name)) s.el.querySelector('.kt-label .n').textContent = t('ktFriend'); });
   });
 
   applyI18n();
